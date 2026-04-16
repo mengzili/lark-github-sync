@@ -100,6 +100,38 @@
   }
   .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
   .copy-btn.copied { border-color: var(--green); color: var(--green); }
+  /* Sub-steps within a step */
+  .substep {
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 1rem 1.25rem; margin-bottom: .75rem;
+    background: rgba(0,0,0,.15);
+  }
+  .substep-header {
+    display: flex; align-items: center; gap: .6rem; margin-bottom: .5rem;
+  }
+  .substep-num {
+    background: var(--border); color: var(--text); font-weight: 700;
+    font-size: .75rem; padding: .15rem .5rem; border-radius: 4px;
+    white-space: nowrap;
+  }
+  .substep-title { font-weight: 600; font-size: .95rem; color: var(--text); }
+  .substep p { margin-bottom: .4rem; }
+  /* Navigation breadcrumb path */
+  .nav-path {
+    display: flex; align-items: center; flex-wrap: wrap; gap: .3rem;
+    margin: .5rem 0; font-size: .85rem;
+  }
+  .nav-item {
+    background: var(--bg); border: 1px solid var(--border);
+    padding: .2rem .55rem; border-radius: 5px; color: var(--muted);
+    white-space: nowrap;
+  }
+  .nav-item.hl {
+    border-color: var(--accent); color: var(--accent); font-weight: 600;
+  }
+  .nav-arrow { color: var(--border); font-size: .75rem; }
+  /* Bilingual labels */
+  .zh { color: var(--muted); font-size: .8rem; }
 </style>
 </head>
 <body>
@@ -129,37 +161,120 @@
   <div class="step-header">
     <div class="step-num">2</div>
     <span class="step-title">Create a Lark app</span>
-    <span class="time">~2 min</span>
+    <span class="time">~3 min</span>
   </div>
-  <p>Open the developer console, click <strong>Create Custom App</strong>, and paste these pre-filled values:</p>
+  <p>Follow the sub-steps below. Navigation paths show exactly where to click.</p>
 
-  <div class="copy-row">
-    <label>App name</label>
-    <span class="copy-val" id="lark-app-name">GitHub Sync Bot</span>
-    <button class="copy-btn" onclick="copyText('lark-app-name', this)">Copy</button>
-  </div>
-  <div class="copy-row">
-    <label>Description</label>
-    <span class="copy-val" id="lark-app-desc">Syncs GitHub org members, repos, and event notifications with Lark</span>
-    <button class="copy-btn" onclick="copyText('lark-app-desc', this)">Copy</button>
+  <div class="btn-group" style="margin-bottom:1rem">
+    <a class="btn btn-primary" href="https://open.feishu.cn/app" target="_blank">Open Feishu Console &rarr;</a>
+    <a class="btn btn-outline" href="https://open.larksuite.com/app" target="_blank">Open Lark Console &rarr;</a>
   </div>
 
-  <div class="btn-group" style="margin-top:.75rem">
-    <a class="btn btn-primary" href="https://open.feishu.cn/app" target="_blank">Feishu Console &rarr;</a>
-    <a class="btn btn-outline" href="https://open.larksuite.com/app" target="_blank">Lark Console &rarr;</a>
+  <!-- 2a -->
+  <div class="substep">
+    <div class="substep-header">
+      <span class="substep-num">2a</span>
+      <span class="substep-title">Create the app</span>
+    </div>
+    <div class="nav-path">
+      <span class="nav-item">Developer Console</span>
+      <span class="nav-arrow">&rarr;</span>
+      <span class="nav-item hl">Create Custom App</span>
+      <span class="zh">(创建企业自建应用)</span>
+    </div>
+    <p>Paste these values into the form:</p>
+    <div class="copy-row">
+      <label>App name</label>
+      <span class="copy-val" id="lark-app-name">GitHub Sync Bot</span>
+      <button class="copy-btn" onclick="copyText('lark-app-name', this)">Copy</button>
+    </div>
+    <div class="copy-row">
+      <label>Description</label>
+      <span class="copy-val" id="lark-app-desc">Syncs GitHub org members, repos, and event notifications with Lark</span>
+      <button class="copy-btn" onclick="copyText('lark-app-desc', this)">Copy</button>
+    </div>
+    <p>Click <strong>Create</strong> <span class="zh">(确认创建)</span>. You'll land on the app dashboard.</p>
   </div>
 
-  <p style="margin-top:1rem">After creating the app, go to <strong>Permissions &amp; Scopes</strong> and add:</p>
-  <table>
-    <tr><th>Permission</th><th>Purpose</th></tr>
-    <tr><td><code>contact:user.base:readonly</code></td><td>Look up users by email</td></tr>
-    <tr><td><code>contact:department.base</code></td><td>Read departments</td></tr>
-    <tr><td><code>contact:contact</code></td><td>Manage contacts</td></tr>
-    <tr><td><code>im:chat</code></td><td>Create group chats</td></tr>
-    <tr><td><code>im:message:send_as_bot</code></td><td>Send notifications</td></tr>
-  </table>
-  <p>Submit for admin approval, then set <strong>App Availability &rarr; All employees</strong>.</p>
-  <p style="margin-top:.5rem">Copy the <strong>App ID</strong> and <strong>App Secret</strong> &mdash; you'll paste them in the next step.</p>
+  <!-- 2b -->
+  <div class="substep">
+    <div class="substep-header">
+      <span class="substep-num">2b</span>
+      <span class="substep-title">Copy your App ID and App Secret</span>
+    </div>
+    <div class="nav-path">
+      <span class="nav-item">Left sidebar</span>
+      <span class="nav-arrow">&rarr;</span>
+      <span class="nav-item hl">Credentials &amp; Basic Info</span>
+      <span class="zh">(凭证与基础信息)</span>
+    </div>
+    <p>You'll see <strong>App ID</strong> <span class="zh">(App ID)</span> and <strong>App Secret</strong> <span class="zh">(App Secret)</span> at the top. Click the copy icon next to each. Save them &mdash; you'll need them in Step 3.</p>
+  </div>
+
+  <!-- 2c -->
+  <div class="substep">
+    <div class="substep-header">
+      <span class="substep-num">2c</span>
+      <span class="substep-title">Enable the Bot capability</span>
+    </div>
+    <div class="nav-path">
+      <span class="nav-item">Left sidebar</span>
+      <span class="nav-arrow">&rarr;</span>
+      <span class="nav-item">Add Capabilities</span>
+      <span class="zh">(添加应用能力)</span>
+      <span class="nav-arrow">&rarr;</span>
+      <span class="nav-item hl">Bot</span>
+      <span class="zh">(机器人)</span>
+    </div>
+    <p>Click <strong>+ Add capability</strong> on the Bot card. This lets the app send messages to group chats.</p>
+  </div>
+
+  <!-- 2d -->
+  <div class="substep">
+    <div class="substep-header">
+      <span class="substep-num">2d</span>
+      <span class="substep-title">Add permissions</span>
+    </div>
+    <div class="nav-path">
+      <span class="nav-item">Left sidebar</span>
+      <span class="nav-arrow">&rarr;</span>
+      <span class="nav-item hl">Permissions &amp; Scopes</span>
+      <span class="zh">(权限管理)</span>
+    </div>
+    <p>Use the search box at the top to find and <strong>activate</strong> each permission:</p>
+    <table>
+      <tr><th>Search for</th><th>Permission name</th><th>Purpose</th></tr>
+      <tr><td><code>contact:user.base</code></td><td>Get basic user info <span class="zh">(获取用户基本信息)</span></td><td>Look up users by email</td></tr>
+      <tr><td><code>contact:department</code></td><td>Get department basic info <span class="zh">(获取部门基本信息)</span></td><td>Read departments</td></tr>
+      <tr><td><code>contact:contact</code></td><td>Update contact info <span class="zh">(更新通讯录)</span></td><td>Manage department membership</td></tr>
+      <tr><td><code>im:chat</code></td><td>Manage group chats <span class="zh">(管理群组)</span></td><td>Create group chats</td></tr>
+      <tr><td><code>im:message</code></td><td>Send messages as bot <span class="zh">(以应用身份发消息)</span></td><td>Send notification cards</td></tr>
+    </table>
+    <p>After adding all 5, click <strong>Batch Activate</strong> <span class="zh">(批量开通)</span> at the top of the list. If some permissions require admin approval, a request will be sent to your Lark admin.</p>
+    <div class="note">
+      <strong>Admin?</strong> If you are the Lark admin (likely as CEO), the permissions are approved instantly. Otherwise, ask your admin to approve them in the <strong>Lark Admin Console</strong> <span class="zh">(管理后台)</span> &rarr; <strong>App Permissions</strong>.
+    </div>
+  </div>
+
+  <!-- 2e -->
+  <div class="substep">
+    <div class="substep-header">
+      <span class="substep-num">2e</span>
+      <span class="substep-title">Create a version &amp; set availability</span>
+    </div>
+    <div class="nav-path">
+      <span class="nav-item">Left sidebar</span>
+      <span class="nav-arrow">&rarr;</span>
+      <span class="nav-item hl">Version Management &amp; Release</span>
+      <span class="zh">(版本管理与发布)</span>
+    </div>
+    <p>1. Click <strong>Create a version</strong> <span class="zh">(创建版本)</span></p>
+    <p>2. Set <strong>Availability</strong> <span class="zh">(可用范围)</span> to <strong>All employees</strong> <span class="zh">(全部员工)</span></p>
+    <p>3. Click <strong>Save</strong> then <strong>Submit for release</strong> <span class="zh">(申请发布)</span></p>
+    <div class="note">
+      <strong>Admin?</strong> If you are the Lark admin, go to <strong>Lark Admin Console</strong> <span class="zh">(管理后台)</span> &rarr; <strong>Workplace</strong> <span class="zh">(工作台)</span> &rarr; <strong>App Review</strong> <span class="zh">(应用审核)</span> and approve the release.
+    </div>
+  </div>
 </div>
 
 <!-- Step 3 -->
