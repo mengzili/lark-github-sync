@@ -10,17 +10,40 @@ Automatically sync your GitHub organization with Lark (Feishu). Members, repos, 
 
 ---
 
-## Setup
+## Setup (100% in the browser)
 
-### [One-Click Deploy](https://zilimeng.com/lark-github-sync/)
+> **[Open the visual setup guide](https://zilimeng.com/lark-github-sync/)** for clickable links and step-by-step instructions.
 
-Open the deploy page, fill in your Lark and GitHub credentials, click **Deploy**. The page creates the repo, sets secrets, and triggers the first sync — all from your browser.
+### 1. Use this template &nbsp;`~10 sec`
 
-You only need two things beforehand:
-1. **A Lark custom app** — the deploy page walks you through creating one (~3 min)
-2. **A GitHub PAT** — the deploy page links you to the creation form with pre-filled scopes
+Click **[Use this template](https://github.com/new?template_owner=mengzili&template_name=lark-github-sync&name=lark-github-sync&description=Automatically+sync+GitHub+org+with+Lark%2FFeishu+%E2%80%94+members%2C+repos%2C+and+notifications&visibility=private)** — name, description, and visibility are pre-filled. Just pick your org and click *Create*.
 
-That's it. Everything else is automated.
+### 2. Create a Lark app + set 3 secrets &nbsp;`~3 min`
+
+Open the developer console ([Feishu](https://open.feishu.cn/app) / [Lark](https://open.larksuite.com/app)), create a **Custom App**, and add these permissions:
+
+| Permission | Purpose |
+|---|---|
+| `contact:user.base:readonly` | Look up users by email |
+| `contact:department.base` | Read departments |
+| `contact:contact:readonly_as_app` | List department members |
+| `contact:contact` | Manage department membership |
+| `im:chat` | Create group chats |
+| `im:message:send_as_bot` | Send notifications |
+
+Submit for approval, set availability to **All employees**, then go to your new repo's **Settings &rarr; Secrets &rarr; Actions** and add:
+
+| Secret | Value |
+|---|---|
+| `LARK_APP_ID` | From the Lark app |
+| `LARK_APP_SECRET` | From the Lark app |
+| `SYNC_GITHUB_TOKEN` | [Create a GitHub PAT](https://github.com/settings/tokens/new?description=lark-github-sync&scopes=repo,admin:org) with `repo` + `admin:org` scopes |
+
+### 3. Run Initial Setup &nbsp;`~1 min`
+
+Go to **Actions &rarr; :rocket: Initial Setup &rarr; Run workflow**. Fill in your GitHub org name, choose `feishu` or `lark`, and optionally pick a department ID (`0` = all employees).
+
+**That's it.** The workflow configures everything, syncs members, creates group chats, and deploys notifications to all your repos.
 
 ---
 
@@ -63,12 +86,12 @@ All cards include a clickable **View on GitHub** button.
 
 **New repo added?** Group chat is auto-created on next sync. Run "Setup Notification Workflows" to push the notification workflow.
 
-**Can I sync the whole company?** Yes — set department ID to `0` (the default).
+**Can I sync the whole company?** Yes — set `lark_department_id` to `0` (the default).
 
-**How do I get updates?** The repo includes a weekly `Sync from upstream` workflow that creates a PR when new updates are available.
+## Advanced
 
 <details>
-<summary><strong>Advanced: run locally</strong></summary>
+<summary>Run locally (optional)</summary>
 
 ```bash
 git clone https://github.com/YOUR_ORG/lark-github-sync.git
@@ -84,14 +107,14 @@ npm run setup                        # interactive CLI wizard
 </details>
 
 <details>
-<summary><strong>Configuration reference</strong></summary>
+<summary>Configuration reference</summary>
 
 | Variable | Description | Default |
 |---|---|---|
 | `LARK_APP_ID` | Secret — Lark app ID | *(required)* |
 | `LARK_APP_SECRET` | Secret — Lark app secret | *(required)* |
 | `SYNC_GITHUB_TOKEN` | Secret — GitHub PAT | *(required)* |
-| `GITHUB_ORG` | Variable — org name | *(set by deploy)* |
+| `GITHUB_ORG` | Variable — org name | *(set by setup)* |
 | `LARK_DOMAIN` | Variable — `feishu` or `lark` | `feishu` |
 | `LARK_SOURCE_DEPARTMENT_ID` | Variable — Lark dept to sync | `0` (all) |
 | `SYNC_REMOVE_MEMBERS` | Variable — remove departed members | `true` |
