@@ -1,6 +1,6 @@
 # Feishu/Lark &ndash; GitHub Organization Sync
 
-Automatically sync your GitHub organization with Lark (Feishu). Members, repos, and event notifications — all managed through GitHub Actions. **Nothing to install.**
+Automatically sync your GitHub organization with Lark (Feishu). Members, repos, and event notifications — all managed through GitHub Actions.
 
 | Feature | What it does |
 |---|---|
@@ -10,40 +10,15 @@ Automatically sync your GitHub organization with Lark (Feishu). Members, repos, 
 
 ---
 
-## Setup (100% in the browser)
+## Setup
 
-> **[Open the visual setup guide](https://zilimeng.com/lark-github-sync/)** for clickable links and step-by-step instructions.
+### [Open the setup page &rarr;](https://zilimeng.com/lark-github-sync/)
 
-### 1. Use this template &nbsp;`~10 sec`
+1. **Login with GitHub** &mdash; one click, OAuth popup, done
+2. **Create a Lark app** &mdash; ~3 min, guided walkthrough on the page
+3. **Click Deploy** &mdash; repo, secrets, variables, and initial sync are all configured automatically
 
-Click **[Use this template](https://github.com/new?template_owner=mengzili&template_name=lark-github-sync&name=lark-github-sync&description=Automatically+sync+GitHub+org+with+Lark%2FFeishu+%E2%80%94+members%2C+repos%2C+and+notifications&visibility=private)** — name, description, and visibility are pre-filled. Just pick your org and click *Create*.
-
-### 2. Create a Lark app + set 3 secrets &nbsp;`~3 min`
-
-Open the developer console ([Feishu](https://open.feishu.cn/app) / [Lark](https://open.larksuite.com/app)), create a **Custom App**, and add these permissions:
-
-| Permission | Purpose |
-|---|---|
-| `contact:user.base:readonly` | Look up users by email |
-| `contact:department.base` | Read departments |
-| `contact:contact:readonly_as_app` | List department members |
-| `contact:contact` | Manage department membership |
-| `im:chat` | Create group chats |
-| `im:message:send_as_bot` | Send notifications |
-
-Submit for approval, set availability to **All employees**, then go to your new repo's **Settings &rarr; Secrets &rarr; Actions** and add:
-
-| Secret | Value |
-|---|---|
-| `LARK_APP_ID` | From the Lark app |
-| `LARK_APP_SECRET` | From the Lark app |
-| `SYNC_GITHUB_TOKEN` | [Create a GitHub PAT](https://github.com/settings/tokens/new?description=lark-github-sync&scopes=repo,admin:org) with `repo` + `admin:org` scopes |
-
-### 3. Run Initial Setup &nbsp;`~1 min`
-
-Go to **Actions &rarr; :rocket: Initial Setup &rarr; Run workflow**. Fill in your GitHub org name, choose `feishu` or `lark`, and optionally pick a department ID (`0` = all employees).
-
-**That's it.** The workflow configures everything, syncs members, creates group chats, and deploys notifications to all your repos.
+No CLI, no git, no PAT creation, no manual secret setting.
 
 ---
 
@@ -76,45 +51,44 @@ Go to **Actions &rarr; :rocket: Initial Setup &rarr; Run workflow**. Fill in you
 | CI/CD | Green/Red &mdash; pass/fail with duration |
 | Branch/Tag create/delete | Green/Red |
 
-All cards include a clickable **View on GitHub** button.
-
 ## FAQ
 
-**How are users matched?** By email. If the email on a Lark account matches a GitHub profile's public email, they're linked automatically.
+**How are users matched?** By email. Lark account email ↔ GitHub public email.
 
-**What if someone joins Lark later?** They're auto-invited to GitHub on the next daily sync (or trigger it manually).
+**New Lark hire?** Auto-invited to GitHub on next daily sync.
 
-**New repo added?** Group chat is auto-created on next sync. Run "Setup Notification Workflows" to push the notification workflow.
+**New repo?** Group chat auto-created. Run "Setup Notification Workflows" action to push the notification workflow.
 
-**Can I sync the whole company?** Yes — set `lark_department_id` to `0` (the default).
+**Whole company?** Set department ID to `0` (the default).
 
-## Advanced
+**Updates?** The repo includes a weekly `Sync from upstream` workflow that PRs new updates.
 
 <details>
-<summary>Run locally (optional)</summary>
+<summary><strong>Self-hosting the OAuth worker</strong></summary>
+
+The setup page uses a Cloudflare Worker for GitHub OAuth token exchange and Lark credential verification. To host your own:
 
 ```bash
-git clone https://github.com/YOUR_ORG/lark-github-sync.git
-cd lark-github-sync && npm install
-
-export LARK_APP_ID="cli_xxx" LARK_APP_SECRET="xxx"
-export GITHUB_TOKEN="ghp_xxx" GITHUB_ORG="your-org"
-
-DRY_RUN=true npm run sync-members   # preview
-DRY_RUN=true npm run sync-repos     # preview
-npm run setup                        # interactive CLI wizard
+cd worker
+npm install
+# Edit wrangler.toml: set GITHUB_CLIENT_ID and ALLOWED_ORIGIN
+npx wrangler secret put GITHUB_CLIENT_SECRET
+npx wrangler deploy
 ```
+
+You also need a [GitHub OAuth App](https://github.com/settings/developers) with the callback URL set to `https://your-worker.workers.dev/callback/github`.
+
 </details>
 
 <details>
-<summary>Configuration reference</summary>
+<summary><strong>Configuration reference</strong></summary>
 
 | Variable | Description | Default |
 |---|---|---|
 | `LARK_APP_ID` | Secret — Lark app ID | *(required)* |
 | `LARK_APP_SECRET` | Secret — Lark app secret | *(required)* |
-| `SYNC_GITHUB_TOKEN` | Secret — GitHub PAT | *(required)* |
-| `GITHUB_ORG` | Variable — org name | *(set by setup)* |
+| `SYNC_GITHUB_TOKEN` | Secret — GitHub OAuth token | *(set by deploy)* |
+| `GITHUB_ORG` | Variable — org name | *(set by deploy)* |
 | `LARK_DOMAIN` | Variable — `feishu` or `lark` | `feishu` |
 | `LARK_SOURCE_DEPARTMENT_ID` | Variable — Lark dept to sync | `0` (all) |
 | `SYNC_REMOVE_MEMBERS` | Variable — remove departed members | `true` |

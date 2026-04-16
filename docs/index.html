@@ -3,380 +3,418 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lark–GitHub Sync — Setup Guide</title>
+<title>Lark–GitHub Sync</title>
 <style>
   :root {
     --bg: #0d1117; --surface: #161b22; --border: #30363d;
     --text: #e6edf3; --muted: #8b949e; --accent: #58a6ff;
-    --green: #3fb950; --orange: #d29922; --purple: #bc8cff;
+    --green: #3fb950; --orange: #d29922; --red: #f85149;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-    background: var(--bg); color: var(--text);
-    max-width: 720px; margin: 0 auto; padding: 2rem 1.5rem;
-    line-height: 1.6;
-  }
-  h1 { font-size: 1.8rem; margin-bottom: .25rem; }
-  .subtitle { color: var(--muted); margin-bottom: 2rem; font-size: 1rem; }
-  .step {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; padding: 1.5rem; margin-bottom: 1.25rem;
-  }
-  .step-header {
-    display: flex; align-items: center; gap: .75rem; margin-bottom: .75rem;
-  }
-  .step-num {
-    background: var(--accent); color: var(--bg); font-weight: 700;
-    width: 2rem; height: 2rem; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0; font-size: .9rem;
-  }
-  .step-num.done { background: var(--green); }
-  .step-title { font-size: 1.15rem; font-weight: 600; }
-  .step p, .step li { color: var(--muted); font-size: .95rem; }
-  .step p { margin-bottom: .5rem; }
-  .step ul { padding-left: 1.25rem; margin-bottom: .75rem; }
-  .step li { margin-bottom: .25rem; }
-  .btn {
-    display: inline-block; padding: .55rem 1.1rem; border-radius: 8px;
-    text-decoration: none; font-weight: 600; font-size: .9rem;
-    transition: opacity .15s; cursor: pointer;
-  }
-  .btn:hover { opacity: .85; }
-  .btn-primary { background: var(--accent); color: var(--bg); }
-  .btn-outline {
-    border: 1px solid var(--border); color: var(--accent); background: none;
-  }
-  .btn-group { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .5rem; }
-  code {
-    background: var(--bg); border: 1px solid var(--border);
-    padding: .15rem .4rem; border-radius: 4px; font-size: .85rem;
-  }
-  table { width: 100%; border-collapse: collapse; margin: .75rem 0; font-size: .9rem; }
-  th, td {
-    text-align: left; padding: .4rem .6rem;
-    border-bottom: 1px solid var(--border);
-  }
-  th { color: var(--text); font-weight: 600; }
-  td { color: var(--muted); }
-  td code { white-space: nowrap; }
-  .time { color: var(--green); font-weight: 600; font-size: .85rem; }
-  .done-box {
-    background: linear-gradient(135deg, #1a3a2a, #162b22);
-    border-color: #238636; text-align: center; padding: 2rem;
-  }
-  .done-box h2 { color: var(--green); font-size: 1.4rem; margin-bottom: .5rem; }
-  #repoInput {
-    background: var(--bg); border: 1px solid var(--border); color: var(--text);
-    padding: .45rem .75rem; border-radius: 6px; width: 100%; max-width: 400px;
-    font-size: .95rem; margin-bottom: .5rem;
-  }
-  #repoInput:focus { outline: none; border-color: var(--accent); }
-  .note {
-    background: #1c2128; border-left: 3px solid var(--orange);
-    padding: .75rem 1rem; border-radius: 0 6px 6px 0;
-    margin: .75rem 0; font-size: .9rem;
-  }
-  .note strong { color: var(--orange); }
-  /* Copy-value rows */
-  .copy-row {
-    display: flex; align-items: center; gap: .5rem;
-    margin-bottom: .4rem;
-  }
-  .copy-row label {
-    color: var(--muted); font-size: .9rem; min-width: 6.5rem;
-  }
-  .copy-row .copy-val {
-    flex: 1; background: var(--bg); border: 1px solid var(--border);
-    padding: .3rem .6rem; border-radius: 6px; font-size: .85rem;
-    color: var(--text); font-family: inherit;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .copy-btn {
-    background: none; border: 1px solid var(--border); color: var(--muted);
-    border-radius: 6px; padding: .3rem .55rem; cursor: pointer;
-    font-size: .8rem; white-space: nowrap; transition: all .15s;
-  }
-  .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
-  .copy-btn.copied { border-color: var(--green); color: var(--green); }
-  /* Sub-steps within a step */
-  .substep {
-    border: 1px solid var(--border); border-radius: 8px;
-    padding: 1rem 1.25rem; margin-bottom: .75rem;
-    background: rgba(0,0,0,.15);
-  }
-  .substep-header {
-    display: flex; align-items: center; gap: .6rem; margin-bottom: .5rem;
-  }
-  .substep-num {
-    background: var(--border); color: var(--text); font-weight: 700;
-    font-size: .75rem; padding: .15rem .5rem; border-radius: 4px;
-    white-space: nowrap;
-  }
-  .substep-title { font-weight: 600; font-size: .95rem; color: var(--text); }
-  .substep p { margin-bottom: .4rem; }
-  /* Navigation breadcrumb path */
-  .nav-path {
-    display: flex; align-items: center; flex-wrap: wrap; gap: .3rem;
-    margin: .5rem 0; font-size: .85rem;
-  }
-  .nav-item {
-    background: var(--bg); border: 1px solid var(--border);
-    padding: .2rem .55rem; border-radius: 5px; color: var(--muted);
-    white-space: nowrap;
-  }
-  .nav-item.hl {
-    border-color: var(--accent); color: var(--accent); font-weight: 600;
-  }
-  .nav-arrow { color: var(--border); font-size: .75rem; }
-  /* Bilingual labels */
-  .zh { color: var(--muted); font-size: .8rem; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);max-width:640px;margin:0 auto;padding:2rem 1.5rem;line-height:1.6}
+  h1{font-size:1.7rem;margin-bottom:.2rem}
+  .sub{color:var(--muted);margin-bottom:1.5rem;font-size:.92rem}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.25rem;margin-bottom:1rem}
+  .card-t{font-weight:600;font-size:1.05rem;margin-bottom:.6rem;display:flex;align-items:center;gap:.5rem}
+  label{display:block;color:var(--muted);font-size:.85rem;margin:.6rem 0 .25rem}
+  input[type=text],input[type=password],select{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.5rem .7rem;border-radius:6px;font-size:.9rem;font-family:inherit}
+  input:focus,select:focus{outline:none;border-color:var(--accent)}
+  .hint{font-size:.78rem;color:var(--muted);margin-top:.2rem}
+  .hint a{color:var(--accent)}
+  .radio-group{display:flex;gap:1rem;margin-top:.3rem}
+  .radio-group label{display:flex;align-items:center;gap:.35rem;margin:0;cursor:pointer;color:var(--text);font-size:.9rem}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.65rem 1.3rem;border-radius:8px;border:none;font-weight:700;font-size:.95rem;cursor:pointer;transition:opacity .15s;font-family:inherit}
+  .btn:hover:not(:disabled){opacity:.85}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn-gh{background:#24292f;color:#fff;width:100%}
+  .btn-gh svg{width:20px;height:20px;fill:#fff}
+  .btn-deploy{background:var(--green);color:var(--bg);width:100%;margin-top:.75rem;font-size:1rem;padding:.75rem}
+  .btn-sm{padding:.4rem .8rem;font-size:.82rem;width:auto;background:none;border:1px solid var(--border);color:var(--accent);border-radius:6px}
+  .gh-user{display:flex;align-items:center;gap:.7rem;padding:.6rem;background:var(--bg);border:1px solid var(--border);border-radius:8px}
+  .gh-user img{width:32px;height:32px;border-radius:50%}
+  .gh-user .name{font-weight:600;font-size:.9rem}
+  .gh-user .login{color:var(--muted);font-size:.8rem}
+  #gh-status{display:none}
+  #gh-login-btn{display:block}
+  .verified{color:var(--green);font-size:.85rem;margin-top:.3rem}
+  .verify-err{color:var(--red);font-size:.85rem;margin-top:.3rem}
+  /* Progress log */
+  #progress{display:none}
+  #progress.active{display:block}
+  .log{padding:.3rem 0;font-size:.88rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+  .log .ic{width:1.2rem;text-align:center;flex-shrink:0}
+  .log.ok .ic{color:var(--green)}
+  .log.err .ic{color:var(--red)}
+  .log.spin .ic{animation:sp .8s linear infinite;display:inline-block}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .result{margin-top:.75rem;padding:.75rem 1rem;border-radius:8px;font-size:.9rem}
+  .result-ok{background:#122117;border:1px solid #238636}
+  .result-ok a{color:var(--green);font-weight:600}
+  .result-err{background:#2d1215;border:1px solid var(--red);color:var(--red)}
+  /* Expandable Lark guide */
+  details{margin-bottom:.5rem}
+  summary{cursor:pointer;color:var(--accent);font-weight:600;font-size:.9rem;padding:.4rem 0;list-style:none}
+  summary::before{content:'▸ '}
+  details[open] summary::before{content:'▾ '}
+  .guide{padding:.6rem .9rem;background:rgba(0,0,0,.15);border:1px solid var(--border);border-radius:8px;margin-top:.3rem}
+  .guide p,.guide li{color:var(--muted);font-size:.85rem}
+  .guide p{margin-bottom:.3rem}
+  .guide ol{padding-left:1.2rem}
+  .guide li{margin-bottom:.3rem}
+  .guide code{background:var(--bg);border:1px solid var(--border);padding:.1rem .3rem;border-radius:3px;font-size:.8rem}
+  .nav-path{display:flex;align-items:center;flex-wrap:wrap;gap:.25rem;margin:.3rem 0;font-size:.8rem}
+  .nav-item{background:var(--bg);border:1px solid var(--border);padding:.15rem .4rem;border-radius:4px;color:var(--muted);white-space:nowrap}
+  .nav-item.hl{border-color:var(--accent);color:var(--accent);font-weight:600}
+  .nav-arrow{color:var(--border);font-size:.7rem}
+  .zh{color:var(--muted);font-size:.78rem}
+  .cp-row{display:flex;align-items:center;gap:.4rem;margin:.3rem 0}
+  .cp-row span{background:var(--bg);border:1px solid var(--border);padding:.2rem .5rem;border-radius:4px;font-size:.82rem;flex:1}
+  .cp-btn{background:none;border:1px solid var(--border);color:var(--muted);border-radius:4px;padding:.2rem .4rem;cursor:pointer;font-size:.72rem}
+  .cp-btn:hover{color:var(--accent);border-color:var(--accent)}
+  .security{text-align:center;color:var(--muted);font-size:.75rem;margin-top:1rem}
+  .security strong{color:var(--text)}
 </style>
 </head>
 <body>
 
-<h1>Lark&ndash;GitHub Sync</h1>
-<p class="subtitle">Set up in ~5 minutes. Everything happens in the browser &mdash; nothing to install.</p>
+<h1>Lark–GitHub Sync</h1>
+<p class="sub">Login with GitHub, paste your Lark credentials, click Deploy.</p>
 
-<!-- Step 1 -->
-<div class="step">
-  <div class="step-header">
-    <div class="step-num">1</div>
-    <span class="step-title">Use this template</span>
-    <span class="time">~10 sec</span>
-  </div>
-  <p>Create a <strong>private</strong> copy in your GitHub org. The name, description, and visibility are pre-filled &mdash; just pick your org and click <em>Create repository</em>.</p>
-  <div class="btn-group">
-    <a class="btn btn-primary" id="link-template"
-       href="https://github.com/new?template_owner=mengzili&template_name=lark-github-sync&name=lark-github-sync&description=Automatically+sync+GitHub+org+with+Lark%2FFeishu+%E2%80%94+members%2C+repos%2C+and+notifications&visibility=private"
-       target="_blank">Use this template &rarr;</a>
-  </div>
-  <p style="margin-top:1rem">Once created, paste your new repo URL here &mdash; the links below will update automatically:</p>
-  <input id="repoInput" type="text" placeholder="https://github.com/your-org/lark-github-sync">
-</div>
-
-<!-- Step 2 -->
-<div class="step">
-  <div class="step-header">
-    <div class="step-num">2</div>
-    <span class="step-title">Create a Lark app</span>
-    <span class="time">~3 min</span>
-  </div>
-  <p>Follow the sub-steps below. Navigation paths show exactly where to click.</p>
-
-  <div class="btn-group" style="margin-bottom:1rem">
-    <a class="btn btn-primary" href="https://open.feishu.cn/app" target="_blank">Open Feishu Console &rarr;</a>
-    <a class="btn btn-outline" href="https://open.larksuite.com/app" target="_blank">Open Lark Console &rarr;</a>
+<!-- ─── GitHub OAuth ─────────────────────────────────────────────────── -->
+<div class="card">
+  <div class="card-t">
+    <svg viewBox="0 0 16 16" width="20" height="20" fill="var(--text)"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+    GitHub
   </div>
 
-  <!-- 2a -->
-  <div class="substep">
-    <div class="substep-header">
-      <span class="substep-num">2a</span>
-      <span class="substep-title">Create the app</span>
-    </div>
-    <div class="nav-path">
-      <span class="nav-item">Developer Console</span>
-      <span class="nav-arrow">&rarr;</span>
-      <span class="nav-item hl">Create Custom App</span>
-      <span class="zh">(创建企业自建应用)</span>
-    </div>
-    <p>Paste these values into the form:</p>
-    <div class="copy-row">
-      <label>App name</label>
-      <span class="copy-val" id="lark-app-name">GitHub Sync Bot</span>
-      <button class="copy-btn" onclick="copyText('lark-app-name', this)">Copy</button>
-    </div>
-    <div class="copy-row">
-      <label>Description</label>
-      <span class="copy-val" id="lark-app-desc">Syncs GitHub org members, repos, and event notifications with Lark</span>
-      <button class="copy-btn" onclick="copyText('lark-app-desc', this)">Copy</button>
-    </div>
-    <p>Click <strong>Create</strong> <span class="zh">(确认创建)</span>. You'll land on the app dashboard.</p>
+  <div id="gh-login-btn">
+    <button class="btn btn-gh" onclick="ghLogin()">
+      <svg viewBox="0 0 16 16" width="18" height="18"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      Login with GitHub
+    </button>
   </div>
 
-  <!-- 2b -->
-  <div class="substep">
-    <div class="substep-header">
-      <span class="substep-num">2b</span>
-      <span class="substep-title">Copy your App ID and App Secret</span>
+  <div id="gh-status">
+    <div class="gh-user">
+      <img id="gh-avatar" src="" alt="">
+      <div>
+        <div class="name" id="gh-name"></div>
+        <div class="login" id="gh-login"></div>
+      </div>
     </div>
-    <div class="nav-path">
-      <span class="nav-item">Left sidebar</span>
-      <span class="nav-arrow">&rarr;</span>
-      <span class="nav-item hl">Credentials &amp; Basic Info</span>
-      <span class="zh">(凭证与基础信息)</span>
-    </div>
-    <p>You'll see <strong>App ID</strong> <span class="zh">(App ID)</span> and <strong>App Secret</strong> <span class="zh">(App Secret)</span> at the top. Click the copy icon next to each. Save them &mdash; you'll need them in Step 3.</p>
-  </div>
-
-  <!-- 2c -->
-  <div class="substep">
-    <div class="substep-header">
-      <span class="substep-num">2c</span>
-      <span class="substep-title">Enable the Bot capability</span>
-    </div>
-    <div class="nav-path">
-      <span class="nav-item">Left sidebar</span>
-      <span class="nav-arrow">&rarr;</span>
-      <span class="nav-item">Add Capabilities</span>
-      <span class="zh">(添加应用能力)</span>
-      <span class="nav-arrow">&rarr;</span>
-      <span class="nav-item hl">Bot</span>
-      <span class="zh">(机器人)</span>
-    </div>
-    <p>Click <strong>+ Add capability</strong> on the Bot card. This lets the app send messages to group chats.</p>
-  </div>
-
-  <!-- 2d -->
-  <div class="substep">
-    <div class="substep-header">
-      <span class="substep-num">2d</span>
-      <span class="substep-title">Add permissions</span>
-    </div>
-    <div class="nav-path">
-      <span class="nav-item">Left sidebar</span>
-      <span class="nav-arrow">&rarr;</span>
-      <span class="nav-item hl">Permissions &amp; Scopes</span>
-      <span class="zh">(权限管理)</span>
-    </div>
-    <p>Use the search box at the top to find and <strong>activate</strong> each permission:</p>
-    <table>
-      <tr><th>Search for</th><th>Permission name</th><th>Purpose</th></tr>
-      <tr><td><code>contact:user.base</code></td><td>Get basic user info <span class="zh">(获取用户基本信息)</span></td><td>Look up users by email</td></tr>
-      <tr><td><code>contact:department</code></td><td>Get department basic info <span class="zh">(获取部门基本信息)</span></td><td>Read departments</td></tr>
-      <tr><td><code>contact:contact:readonly_as_app</code></td><td>Read contacts as app <span class="zh">(以应用身份读取通讯录)</span></td><td>List department members</td></tr>
-      <tr><td><code>contact:contact</code></td><td>Update contact info <span class="zh">(更新通讯录)</span></td><td>Manage department membership</td></tr>
-      <tr><td><code>im:chat</code></td><td>Manage group chats <span class="zh">(管理群组)</span></td><td>Create group chats</td></tr>
-      <tr><td><code>im:message</code></td><td>Send messages as bot <span class="zh">(以应用身份发消息)</span></td><td>Send notification cards</td></tr>
-    </table>
-    <p>After adding all 6, click <strong>Batch Activate</strong> <span class="zh">(批量开通)</span> at the top of the list. If some permissions require admin approval, a request will be sent to your Lark admin.</p>
-    <div class="note">
-      <strong>Admin?</strong> If you are the Lark admin (likely as CEO), the permissions are approved instantly. Otherwise, ask your admin to approve them in the <strong>Lark Admin Console</strong> <span class="zh">(管理后台)</span> &rarr; <strong>App Permissions</strong>.
-    </div>
-  </div>
-
-  <!-- 2e -->
-  <div class="substep">
-    <div class="substep-header">
-      <span class="substep-num">2e</span>
-      <span class="substep-title">Create a version &amp; set availability</span>
-    </div>
-    <div class="nav-path">
-      <span class="nav-item">Left sidebar</span>
-      <span class="nav-arrow">&rarr;</span>
-      <span class="nav-item hl">Version Management &amp; Release</span>
-      <span class="zh">(版本管理与发布)</span>
-    </div>
-    <p>1. Click <strong>Create a version</strong> <span class="zh">(创建版本)</span></p>
-    <p>2. Set <strong>Availability</strong> <span class="zh">(可用范围)</span> to <strong>All employees</strong> <span class="zh">(全部员工)</span></p>
-    <p>3. Click <strong>Save</strong> then <strong>Submit for release</strong> <span class="zh">(申请发布)</span></p>
-    <div class="note">
-      <strong>Admin?</strong> If you are the Lark admin, go to <strong>Lark Admin Console</strong> <span class="zh">(管理后台)</span> &rarr; <strong>Workplace</strong> <span class="zh">(工作台)</span> &rarr; <strong>App Review</strong> <span class="zh">(应用审核)</span> and approve the release.
-    </div>
+    <label for="gh-org">Organization</label>
+    <select id="gh-org"></select>
   </div>
 </div>
 
-<!-- Step 3 -->
-<div class="step">
-  <div class="step-header">
-    <div class="step-num">3</div>
-    <span class="step-title">Set 3 secrets on your repo</span>
-    <span class="time">~1 min</span>
+<!-- ─── Lark credentials ─────────────────────────────────────────────── -->
+<div class="card">
+  <div class="card-t">Lark / Feishu</div>
+
+  <details>
+    <summary>How to create a Lark app (~3 min)</summary>
+    <div class="guide">
+      <div style="display:flex;gap:.5rem;margin:.4rem 0">
+        <a class="btn btn-sm" href="https://open.feishu.cn/app" target="_blank">Feishu Console</a>
+        <a class="btn btn-sm" href="https://open.larksuite.com/app" target="_blank">Lark Console</a>
+      </div>
+      <ol>
+        <li>Click <strong>Create Custom App</strong> <span class="zh">(创建企业自建应用)</span>
+          <div class="cp-row"><span id="v-n">GitHub Sync Bot</span><button class="cp-btn" onclick="cp('v-n',this)">Copy</button></div>
+          <div class="cp-row"><span id="v-d">Syncs GitHub org members, repos, and event notifications with Lark</span><button class="cp-btn" onclick="cp('v-d',this)">Copy</button></div>
+        </li>
+        <li>
+          <div class="nav-path"><span class="nav-item">Sidebar</span><span class="nav-arrow">&rarr;</span><span class="nav-item hl">Add Capabilities</span><span class="zh">(添加应用能力)</span><span class="nav-arrow">&rarr;</span><span class="nav-item hl">Bot</span><span class="zh">(机器人)</span></div>
+          Click <strong>+ Add</strong> on the Bot card.
+        </li>
+        <li>
+          <div class="nav-path"><span class="nav-item">Sidebar</span><span class="nav-arrow">&rarr;</span><span class="nav-item hl">Permissions &amp; Scopes</span><span class="zh">(权限管理)</span></div>
+          Search and activate:
+          <code>contact:user.base:readonly</code>,
+          <code>contact:department.base</code>,
+          <code>contact:contact:readonly_as_app</code>,
+          <code>contact:contact</code>,
+          <code>im:chat</code>,
+          <code>im:message:send_as_bot</code>.
+          Click <strong>Batch Activate</strong> <span class="zh">(批量开通)</span>.
+        </li>
+        <li>
+          <div class="nav-path"><span class="nav-item">Sidebar</span><span class="nav-arrow">&rarr;</span><span class="nav-item hl">Version Management</span><span class="zh">(版本管理与发布)</span></div>
+          <strong>Create a version</strong> <span class="zh">(创建版本)</span> &rarr; set Availability to <strong>All employees</strong> <span class="zh">(全部员工)</span> &rarr; <strong>Submit</strong> <span class="zh">(申请发布)</span>.
+          If you are the admin, approve in <strong>Admin Console</strong> <span class="zh">(管理后台)</span> &rarr; <strong>App Review</strong>.
+        </li>
+        <li>
+          <div class="nav-path"><span class="nav-item">Sidebar</span><span class="nav-arrow">&rarr;</span><span class="nav-item hl">Credentials &amp; Basic Info</span><span class="zh">(凭证与基础信息)</span></div>
+          Copy <strong>App ID</strong> and <strong>App Secret</strong> below.
+        </li>
+      </ol>
+    </div>
+  </details>
+
+  <div class="radio-group">
+    <label><input type="radio" name="domain" value="feishu" checked> Feishu (飞书)</label>
+    <label><input type="radio" name="domain" value="lark"> Lark</label>
   </div>
-  <p>Go to your repo's <strong>Settings &rarr; Secrets and variables &rarr; Actions &rarr; New repository secret</strong> and add:</p>
-  <table>
-    <tr><th>Secret name</th><th>Value</th></tr>
-    <tr><td><code>LARK_APP_ID</code></td><td>From the Lark app you just created</td></tr>
-    <tr><td><code>LARK_APP_SECRET</code></td><td>From the Lark app you just created</td></tr>
-    <tr><td><code>SYNC_GITHUB_TOKEN</code></td><td>A GitHub PAT &mdash; click below to create one with pre-filled scopes</td></tr>
-  </table>
-  <div class="btn-group">
-    <a class="btn btn-primary" id="link-secrets"
-       href="#" target="_blank">Open repo Secrets &rarr;</a>
-    <a class="btn btn-outline" id="link-pat"
-       href="https://github.com/settings/tokens/new?description=lark-github-sync&scopes=repo,admin:org"
-       target="_blank">Create GitHub Token &rarr;</a>
-  </div>
-  <div class="note">
-    <strong>Tip:</strong> The "Create GitHub Token" link pre-fills the name and scopes.
-    Just click <em>Generate token</em> and paste it as <code>SYNC_GITHUB_TOKEN</code>.
-  </div>
+  <label for="appId">App ID</label>
+  <input type="text" id="appId" placeholder="cli_a5e..." autocomplete="off">
+  <label for="appSecret">App Secret</label>
+  <input type="password" id="appSecret" placeholder="Paste your App Secret" autocomplete="off">
+  <button class="btn btn-sm" style="margin-top:.5rem" onclick="verifyLark()">Verify credentials</button>
+  <div id="lark-status"></div>
+
+  <label for="deptId">Department ID</label>
+  <input type="text" id="deptId" value="0" placeholder="0">
+  <p class="hint"><code>0</code> = all employees.</p>
 </div>
 
-<!-- Step 4 -->
-<div class="step">
-  <div class="step-header">
-    <div class="step-num">4</div>
-    <span class="step-title">Run Initial Setup</span>
-    <span class="time">~1 min</span>
-  </div>
-  <p>Go to <strong>Actions &rarr; &#x1F680; Initial Setup &rarr; Run workflow</strong>. Fill in:</p>
-  <table>
-    <tr><th>Input</th><th>What to enter</th></tr>
-    <tr><td><code>github_org</code></td><td>Your GitHub organization name</td></tr>
-    <tr><td><code>lark_domain</code></td><td><code>feishu</code> (China) or <code>lark</code> (international)</td></tr>
-    <tr><td><code>lark_department_id</code></td><td><code>0</code> for all employees, or a specific department ID</td></tr>
-  </table>
-  <div class="btn-group">
-    <a class="btn btn-primary" id="link-actions"
-       href="#" target="_blank">Open Actions tab &rarr;</a>
-  </div>
-  <p style="margin-top:.75rem">The workflow will configure everything, sync members, create group chats, and deploy notifications.</p>
+<!-- ─── Deploy ───────────────────────────────────────────────────────── -->
+<div class="card">
+  <div class="card-t">Deploy</div>
+  <label for="repoName">Repository name</label>
+  <input type="text" id="repoName" value="lark-github-sync">
+  <button class="btn btn-deploy" id="deployBtn" onclick="deploy()" disabled>Deploy</button>
 </div>
 
-<!-- Done -->
-<div class="step done-box">
-  <h2>&#10003; You're done!</h2>
-  <p style="color:var(--muted)">
-    Everything syncs automatically every day at 02:00 UTC.<br>
-    New Lark department members get GitHub access automatically.<br>
-    Every repo push, PR, and issue sends a Lark notification.
-  </p>
+<div class="card" id="progress">
+  <div class="card-t">Progress</div>
+  <div id="log"></div>
+  <div id="result"></div>
 </div>
+
+<p class="security">Your credentials stay in your browser. This is a <strong>static page</strong> — no data is sent to any server except the GitHub &amp; Lark APIs directly.</p>
 
 <script>
-/* ── Copy to clipboard ─────────────────────────────────────────────── */
-function copyText(id, btn) {
-  const text = document.getElementById(id).textContent;
-  navigator.clipboard.writeText(text).then(() => {
-    btn.textContent = 'Copied!';
-    btn.classList.add('copied');
-    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
-  });
+/* ── Config ───────────────────────────────────────────────────────────── */
+// REPLACE with your Worker URL and GitHub OAuth App client_id after deploying
+const WORKER_URL = 'https://feishu-github-sync-oauth.workers.dev';
+const TEMPLATE_OWNER = 'mengzili';
+const TEMPLATE_REPO  = 'lark-github-sync';
+
+/* ── State ────────────────────────────────────────────────────────────── */
+let ghToken = null;
+
+function $(id) { return document.getElementById(id); }
+function cp(id, btn) {
+  navigator.clipboard.writeText($(id).textContent);
+  btn.textContent = 'Copied!';
+  setTimeout(() => btn.textContent = 'Copy', 1200);
+}
+function checkReady() {
+  $('deployBtn').disabled = !(ghToken && $('appId').value.trim() && $('appSecret').value.trim());
+}
+$('appId').addEventListener('input', checkReady);
+$('appSecret').addEventListener('input', checkReady);
+
+/* ── GitHub OAuth ─────────────────────────────────────────────────────── */
+function ghLogin() {
+  const state = crypto.randomUUID();
+  sessionStorage.setItem('oauth_state', state);
+  const w = 500, h = 700;
+  const left = screen.width / 2 - w / 2, top = screen.height / 2 - h / 2;
+  const popup = window.open(
+    `${WORKER_URL}/auth/github?state=${state}`,
+    'github-oauth',
+    `width=${w},height=${h},left=${left},top=${top}`
+  );
+  if (!popup) alert('Please allow popups for this site and try again.');
 }
 
-/* ── Dynamic link updates from repo URL input ──────────────────────── */
-const input = document.getElementById('repoInput');
+window.addEventListener('message', async (e) => {
+  // Only accept messages from our own origin (callback.html is same origin)
+  if (e.origin !== location.origin) return;
+  if (e.data?.type !== 'github-oauth-token' || !e.data.token) return;
 
-function updateLinks() {
-  let url = input.value.trim().replace(/\/+$/, '');
-  if (!url.startsWith('http')) url = 'https://github.com/' + url;
+  ghToken = e.data.token;
 
-  const m = url.match(/github\.com\/([^/]+\/[^/]+)/);
-  if (!m) return;
-  const repo = m[1];
+  // Fetch user profile
+  try {
+    const user = await ghApi('GET', '/user');
+    $('gh-avatar').src = user.avatar_url;
+    $('gh-name').textContent = user.name || user.login;
+    $('gh-login').textContent = '@' + user.login;
 
-  document.getElementById('link-secrets').href =
-    `https://github.com/${repo}/settings/secrets/actions/new`;
-  document.getElementById('link-actions').href =
-    `https://github.com/${repo}/actions/workflows/initial-setup.yml`;
-}
+    // Fetch orgs
+    const orgs = await ghApi('GET', '/user/orgs');
+    const sel = $('gh-org');
+    sel.innerHTML = '';
+    for (const o of orgs) {
+      const opt = document.createElement('option');
+      opt.value = o.login;
+      opt.textContent = o.login;
+      sel.appendChild(opt);
+    }
 
-input.addEventListener('input', updateLinks);
-
-// Auto-detect from GitHub Pages URL (org.github.io/repo)
-try {
-  const host = location.hostname;
-  const path = location.pathname.split('/').filter(Boolean);
-  if (host.endsWith('.github.io') && path.length > 0) {
-    const org = host.replace('.github.io', '');
-    const repo = path[0];
-    input.value = `https://github.com/${org}/${repo}`;
-    updateLinks();
+    $('gh-login-btn').style.display = 'none';
+    $('gh-status').style.display = 'block';
+    checkReady();
+  } catch (err) {
+    alert('Failed to fetch GitHub user: ' + err.message);
+    ghToken = null;
   }
-} catch {}
+});
+
+/* ── GitHub API (direct from browser, CORS supported) ────────────────── */
+async function ghApi(method, path, body) {
+  const res = await fetch('https://api.github.com' + path, {
+    method,
+    headers: {
+      Authorization: 'token ' + ghToken,
+      Accept: 'application/vnd.github+json',
+      'Content-Type': 'application/json',
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (res.status === 204) return null;
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message || res.statusText);
+  return data;
+}
+
+/* ── Lark verification (proxied through Worker) ──────────────────────── */
+async function verifyLark() {
+  const s = $('lark-status');
+  s.className = ''; s.textContent = 'Verifying...';
+  try {
+    const res = await fetch(`${WORKER_URL}/api/verify-lark`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        app_id: $('appId').value.trim(),
+        app_secret: $('appSecret').value.trim(),
+        domain: document.querySelector('input[name=domain]:checked').value,
+      }),
+    });
+    const data = await res.json();
+    if (data.valid) {
+      s.className = 'verified'; s.textContent = '✓ Credentials verified';
+    } else {
+      s.className = 'verify-err'; s.textContent = '✗ ' + (data.error || 'Invalid credentials');
+    }
+  } catch (err) {
+    s.className = 'verify-err'; s.textContent = '✗ Verification failed: ' + err.message;
+  }
+}
+
+/* ── Logging ──────────────────────────────────────────────────────────── */
+function logAdd(txt, st) {
+  const ic = {spin:'◌',ok:'✓',err:'✗'};
+  const el = document.createElement('div');
+  el.className = 'log ' + st;
+  el.innerHTML = `<span class="ic">${ic[st]||''}</span>${txt}`;
+  $('log').appendChild(el);
+  return el;
+}
+function logSet(el, txt, st) {
+  const ic = {ok:'✓',err:'✗'};
+  el.className = 'log ' + st;
+  el.querySelector('.ic').textContent = ic[st]||'';
+  if (txt) el.lastChild.textContent = txt;
+}
+
+/* ── Secret encryption (libsodium) ────────────────────────────────────── */
+let _sodium = null;
+async function loadSodium() {
+  if (_sodium) return _sodium;
+  await new Promise((ok, fail) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/libsodium-wrappers@0.7.15/dist/modules/libsodium-wrappers.js';
+    s.onload = ok; s.onerror = fail;
+    document.head.appendChild(s);
+  });
+  await window.sodium.ready;
+  _sodium = window.sodium;
+  return _sodium;
+}
+async function encryptSecret(pubKey, value) {
+  const s = await loadSodium();
+  const enc = s.crypto_box_seal(s.from_string(value), s.from_base64(pubKey, s.base64_variants.ORIGINAL));
+  return s.to_base64(enc, s.base64_variants.ORIGINAL);
+}
+
+/* ── Deploy ───────────────────────────────────────────────────────────── */
+async function deploy() {
+  const org    = $('gh-org').value;
+  const repo   = $('repoName').value.trim();
+  const appId  = $('appId').value.trim();
+  const secret = $('appSecret').value.trim();
+  const domain = document.querySelector('input[name=domain]:checked').value;
+  const deptId = $('deptId').value.trim() || '0';
+
+  if (!ghToken || !org || !repo || !appId || !secret) return;
+
+  const btn = $('deployBtn');
+  btn.disabled = true; btn.textContent = 'Deploying...';
+  $('progress').classList.add('active');
+  $('log').innerHTML = ''; $('result').innerHTML = '';
+
+  const full = org + '/' + repo;
+
+  try {
+    // 1. Create repo from template
+    let L = logAdd('Creating repository ' + full + '...', 'spin');
+    await ghApi('POST', `/repos/${TEMPLATE_OWNER}/${TEMPLATE_REPO}/generate`, {
+      owner: org, name: repo,
+      description: 'Sync GitHub org with Lark/Feishu — members, repos, notifications',
+      private: true, include_all_branches: false,
+    });
+    logSet(L, 'Created ' + full, 'ok');
+
+    // 2. Wait for repo ready
+    L = logAdd('Waiting for repository...', 'spin');
+    for (let i = 0; i < 30; i++) {
+      try { await ghApi('GET', '/repos/' + full); break; }
+      catch { await new Promise(r => setTimeout(r, 2000)); }
+    }
+    logSet(L, 'Repository ready', 'ok');
+    await new Promise(r => setTimeout(r, 2000));
+
+    // 3. Encrypt and set secrets
+    L = logAdd('Loading encryption...', 'spin');
+    await loadSodium();
+    logSet(L, 'Encryption ready', 'ok');
+
+    L = logAdd('Setting secrets...', 'spin');
+    const pk = await ghApi('GET', `/repos/${full}/actions/secrets/public-key`);
+    const secrets = { LARK_APP_ID: appId, LARK_APP_SECRET: secret, SYNC_GITHUB_TOKEN: ghToken };
+    for (const [name, val] of Object.entries(secrets)) {
+      const enc = await encryptSecret(pk.key, val);
+      await ghApi('PUT', `/repos/${full}/actions/secrets/${name}`, {
+        encrypted_value: enc, key_id: pk.key_id,
+      });
+    }
+    logSet(L, 'Secrets configured', 'ok');
+
+    // 4. Set variables
+    L = logAdd('Setting variables...', 'spin');
+    const vars = { GITHUB_ORG: org, LARK_DOMAIN: domain, LARK_SOURCE_DEPARTMENT_ID: deptId };
+    for (const [name, value] of Object.entries(vars)) {
+      try { await ghApi('POST', `/repos/${full}/actions/variables`, { name, value }); }
+      catch { await ghApi('PATCH', `/repos/${full}/actions/variables/${name}`, { value }); }
+    }
+    logSet(L, 'Variables configured', 'ok');
+
+    // 5. Trigger initial setup workflow
+    L = logAdd('Triggering initial sync...', 'spin');
+    await new Promise(r => setTimeout(r, 3000));
+    try {
+      await ghApi('POST', `/repos/${full}/actions/workflows/initial-setup.yml/dispatches`, {
+        ref: 'main',
+        inputs: { github_org: org, lark_domain: domain, lark_department_id: deptId },
+      });
+      logSet(L, 'Sync triggered', 'ok');
+    } catch {
+      logSet(L, 'Auto-trigger failed — run manually from Actions tab', 'err');
+    }
+
+    $('result').innerHTML =
+      `<div class="result result-ok">Done! <a href="https://github.com/${full}/actions" target="_blank">View progress &rarr;</a></div>`;
+  } catch (err) {
+    logAdd(err.message, 'err');
+    $('result').innerHTML = `<div class="result result-err">${err.message}</div>`;
+  }
+
+  btn.disabled = false; btn.textContent = 'Deploy';
+}
 </script>
 </body>
 </html>

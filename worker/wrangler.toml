@@ -1,0 +1,9 @@
+name = "feishu-github-sync-oauth"
+main = "src/index.ts"
+compatibility_date = "2024-09-01"
+
+[vars]
+GITHUB_CLIENT_ID = "REPLACE_WITH_YOUR_OAUTH_APP_CLIENT_ID"
+ALLOWED_ORIGIN = "https://zilimeng.com"
+
+# GITHUB_CLIENT_SECRET is set via:  npx wrangler secret put GITHUB_CLIENT_SECRET

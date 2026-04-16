@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head><title>Authorizing...</title></head>
+<body>
+<p>Authorizing... this window will close automatically.</p>
+<script>
+(() => {
+  const hash = location.hash.slice(1);
+  const params = new URLSearchParams(hash);
+  const token = params.get('token');
+  if (token && window.opener) {
+    window.opener.postMessage(
+      { type: 'github-oauth-token', token },
+      'https://zilimeng.com'
+    );
+  }
+  window.close();
+})();
+</script>
+</body>
+</html>
