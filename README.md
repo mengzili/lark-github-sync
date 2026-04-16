@@ -16,7 +16,7 @@ Automatically sync your GitHub organization with Lark (Feishu). Members, repos, 
 
 ### 1. Use this template &nbsp;`~10 sec`
 
-Click **[Use this template](https://github.com/mengzili/lark-github-sync/generate)** to create a **private** copy in your GitHub org.
+Click **[Use this template](https://github.com/new?template_owner=mengzili&template_name=lark-github-sync&name=lark-github-sync&description=Automatically+sync+GitHub+org+with+Lark%2FFeishu+%E2%80%94+members%2C+repos%2C+and+notifications&visibility=private)** — name, description, and visibility are pre-filled. Just pick your org and click *Create*.
 
 ### 2. Create a Lark app + set 3 secrets &nbsp;`~3 min`
 

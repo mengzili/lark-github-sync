@@ -41,7 +41,7 @@
   .btn {
     display: inline-block; padding: .55rem 1.1rem; border-radius: 8px;
     text-decoration: none; font-weight: 600; font-size: .9rem;
-    transition: opacity .15s;
+    transition: opacity .15s; cursor: pointer;
   }
   .btn:hover { opacity: .85; }
   .btn-primary { background: var(--accent); color: var(--bg); }
@@ -79,6 +79,27 @@
     margin: .75rem 0; font-size: .9rem;
   }
   .note strong { color: var(--orange); }
+  /* Copy-value rows */
+  .copy-row {
+    display: flex; align-items: center; gap: .5rem;
+    margin-bottom: .4rem;
+  }
+  .copy-row label {
+    color: var(--muted); font-size: .9rem; min-width: 6.5rem;
+  }
+  .copy-row .copy-val {
+    flex: 1; background: var(--bg); border: 1px solid var(--border);
+    padding: .3rem .6rem; border-radius: 6px; font-size: .85rem;
+    color: var(--text); font-family: inherit;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .copy-btn {
+    background: none; border: 1px solid var(--border); color: var(--muted);
+    border-radius: 6px; padding: .3rem .55rem; cursor: pointer;
+    font-size: .8rem; white-space: nowrap; transition: all .15s;
+  }
+  .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .copy-btn.copied { border-color: var(--green); color: var(--green); }
 </style>
 </head>
 <body>
@@ -93,10 +114,10 @@
     <span class="step-title">Use this template</span>
     <span class="time">~10 sec</span>
   </div>
-  <p>Create a <strong>private</strong> copy in your GitHub org.</p>
+  <p>Create a <strong>private</strong> copy in your GitHub org. The name, description, and visibility are pre-filled &mdash; just pick your org and click <em>Create repository</em>.</p>
   <div class="btn-group">
     <a class="btn btn-primary" id="link-template"
-       href="https://github.com/mengzili/lark-github-sync/generate"
+       href="https://github.com/new?template_owner=mengzili&template_name=lark-github-sync&name=lark-github-sync&description=Automatically+sync+GitHub+org+with+Lark%2FFeishu+%E2%80%94+members%2C+repos%2C+and+notifications&visibility=private"
        target="_blank">Use this template &rarr;</a>
   </div>
   <p style="margin-top:1rem">Once created, paste your new repo URL here &mdash; the links below will update automatically:</p>
@@ -107,10 +128,28 @@
 <div class="step">
   <div class="step-header">
     <div class="step-num">2</div>
-    <span class="step-title">Create a Lark app &amp; get credentials</span>
+    <span class="step-title">Create a Lark app</span>
     <span class="time">~2 min</span>
   </div>
-  <p>Open the developer console, create a <strong>Custom App</strong>, and add these permissions:</p>
+  <p>Open the developer console, click <strong>Create Custom App</strong>, and paste these pre-filled values:</p>
+
+  <div class="copy-row">
+    <label>App name</label>
+    <span class="copy-val" id="lark-app-name">GitHub Sync Bot</span>
+    <button class="copy-btn" onclick="copyText('lark-app-name', this)">Copy</button>
+  </div>
+  <div class="copy-row">
+    <label>Description</label>
+    <span class="copy-val" id="lark-app-desc">Syncs GitHub org members, repos, and event notifications with Lark</span>
+    <button class="copy-btn" onclick="copyText('lark-app-desc', this)">Copy</button>
+  </div>
+
+  <div class="btn-group" style="margin-top:.75rem">
+    <a class="btn btn-primary" href="https://open.feishu.cn/app" target="_blank">Feishu Console &rarr;</a>
+    <a class="btn btn-outline" href="https://open.larksuite.com/app" target="_blank">Lark Console &rarr;</a>
+  </div>
+
+  <p style="margin-top:1rem">After creating the app, go to <strong>Permissions &amp; Scopes</strong> and add:</p>
   <table>
     <tr><th>Permission</th><th>Purpose</th></tr>
     <tr><td><code>contact:user.base:readonly</code></td><td>Look up users by email</td></tr>
@@ -119,14 +158,8 @@
     <tr><td><code>im:chat</code></td><td>Create group chats</td></tr>
     <tr><td><code>im:message:send_as_bot</code></td><td>Send notifications</td></tr>
   </table>
-  <p>Submit for admin approval, then set <strong>App Availability → All employees</strong>.</p>
-  <div class="btn-group">
-    <a class="btn btn-primary" href="https://open.feishu.cn/app" target="_blank"
-       id="link-feishu">Feishu Console &rarr;</a>
-    <a class="btn btn-outline" href="https://open.larksuite.com/app" target="_blank"
-       id="link-lark">Lark Console &rarr;</a>
-  </div>
-  <p style="margin-top:.75rem">Copy the <strong>App ID</strong> and <strong>App Secret</strong> — you'll paste them in the next step.</p>
+  <p>Submit for admin approval, then set <strong>App Availability &rarr; All employees</strong>.</p>
+  <p style="margin-top:.5rem">Copy the <strong>App ID</strong> and <strong>App Secret</strong> &mdash; you'll paste them in the next step.</p>
 </div>
 
 <!-- Step 3 -->
@@ -136,12 +169,12 @@
     <span class="step-title">Set 3 secrets on your repo</span>
     <span class="time">~1 min</span>
   </div>
-  <p>Go to your repo's <strong>Settings → Secrets and variables → Actions → New repository secret</strong> and add:</p>
+  <p>Go to your repo's <strong>Settings &rarr; Secrets and variables &rarr; Actions &rarr; New repository secret</strong> and add:</p>
   <table>
     <tr><th>Secret name</th><th>Value</th></tr>
     <tr><td><code>LARK_APP_ID</code></td><td>From the Lark app you just created</td></tr>
     <tr><td><code>LARK_APP_SECRET</code></td><td>From the Lark app you just created</td></tr>
-    <tr><td><code>SYNC_GITHUB_TOKEN</code></td><td>A GitHub PAT &mdash; click the button below to create one with the right scopes</td></tr>
+    <tr><td><code>SYNC_GITHUB_TOKEN</code></td><td>A GitHub PAT &mdash; click below to create one with pre-filled scopes</td></tr>
   </table>
   <div class="btn-group">
     <a class="btn btn-primary" id="link-secrets"
@@ -151,8 +184,8 @@
        target="_blank">Create GitHub Token &rarr;</a>
   </div>
   <div class="note">
-    <strong>Tip:</strong> The "Create GitHub Token" link pre-fills the correct scopes.
-    Just click <em>Generate token</em> and paste the value as <code>SYNC_GITHUB_TOKEN</code>.
+    <strong>Tip:</strong> The "Create GitHub Token" link pre-fills the name and scopes.
+    Just click <em>Generate token</em> and paste it as <code>SYNC_GITHUB_TOKEN</code>.
   </div>
 </div>
 
@@ -163,7 +196,7 @@
     <span class="step-title">Run Initial Setup</span>
     <span class="time">~1 min</span>
   </div>
-  <p>Go to <strong>Actions → 🚀 Initial Setup → Run workflow</strong>. Fill in:</p>
+  <p>Go to <strong>Actions &rarr; &#x1F680; Initial Setup &rarr; Run workflow</strong>. Fill in:</p>
   <table>
     <tr><th>Input</th><th>What to enter</th></tr>
     <tr><td><code>github_org</code></td><td>Your GitHub organization name</td></tr>
@@ -188,17 +221,23 @@
 </div>
 
 <script>
+/* ── Copy to clipboard ─────────────────────────────────────────────── */
+function copyText(id, btn) {
+  const text = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+  });
+}
+
+/* ── Dynamic link updates from repo URL input ──────────────────────── */
 const input = document.getElementById('repoInput');
-const defaults = {
-  secrets: '#',
-  actions: '#',
-};
 
 function updateLinks() {
   let url = input.value.trim().replace(/\/+$/, '');
   if (!url.startsWith('http')) url = 'https://github.com/' + url;
 
-  // Extract owner/repo
   const m = url.match(/github\.com\/([^/]+\/[^/]+)/);
   if (!m) return;
   const repo = m[1];
@@ -211,7 +250,7 @@ function updateLinks() {
 
 input.addEventListener('input', updateLinks);
 
-// Try to auto-detect from page URL (works on GitHub Pages: org.github.io/repo)
+// Auto-detect from GitHub Pages URL (org.github.io/repo)
 try {
   const host = location.hostname;
   const path = location.pathname.split('/').filter(Boolean);
