@@ -33,6 +33,15 @@ export function initLarkClient(config: Config): lark.Client {
   return client;
 }
 
+/**
+ * Detect whether a department ID is an open_department_id (starts with "od-")
+ * or a custom department_id, and return the correct type parameter.
+ * The root department "0" works with both types.
+ */
+export function detectDeptIdType(id: string): 'open_department_id' | 'department_id' {
+  return id === '0' || id.startsWith('od-') ? 'open_department_id' : 'department_id';
+}
+
 /** Create a Lark client directly from app credentials (for the setup wizard). */
 export function initLarkClientDirect(
   appId: string,
@@ -154,7 +163,7 @@ export async function listDepartmentMembers(departmentId: string): Promise<strin
     const res = await c.contact.user.findByDepartment({
       params: {
         department_id: departmentId,
-        department_id_type: 'open_department_id',
+        department_id_type: detectDeptIdType(departmentId),
         user_id_type: 'open_id',
         page_size: 50,
         page_token: pageToken,
@@ -295,7 +304,7 @@ export async function listDepartments(parentId = '0'): Promise<LarkDepartment[]>
         fetch_child: true,
         page_size: 50,
         page_token: pageToken,
-        department_id_type: 'open_department_id',
+        department_id_type: detectDeptIdType(parentId),
       },
     });
 
@@ -330,7 +339,7 @@ export async function listDepartmentMembersDetailed(
     const res = await c.contact.user.findByDepartment({
       params: {
         department_id: departmentId,
-        department_id_type: 'open_department_id',
+        department_id_type: detectDeptIdType(departmentId),
         user_id_type: 'open_id',
         page_size: 50,
         page_token: pageToken,
