@@ -1,0 +1,84 @@
+# Scheduled sync: GitHub org members → Lark department, repos → Lark group chats
+name: Sync GitHub → Lark
+
+on:
+  schedule:
+    # Run daily at 02:00 UTC
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (no changes applied)"
+        required: false
+        type: boolean
+        default: false
+      skip_members:
+        description: "Skip member sync"
+        required: false
+        type: boolean
+        default: false
+      skip_repos:
+        description: "Skip repo sync"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write    # To commit updated mapping file
+  actions: write     # To set repo variables
+
+env:
+  LARK_APP_ID: ${{ secrets.LARK_APP_ID }}
+  LARK_APP_SECRET: ${{ secrets.LARK_APP_SECRET }}
+  LARK_DOMAIN: ${{ vars.LARK_DOMAIN || 'feishu' }}
+  LARK_DEPARTMENT_NAME: ${{ vars.LARK_DEPARTMENT_NAME || 'GitHub Organization' }}
+  GITHUB_TOKEN: ${{ secrets.SYNC_GITHUB_TOKEN }}
+  GITHUB_ORG: ${{ vars.GITHUB_ORG }}
+  DRY_RUN: ${{ inputs.dry_run || 'false' }}
+  SYNC_REMOVE_MEMBERS: ${{ vars.SYNC_REMOVE_MEMBERS || 'true' }}
+
+jobs:
+  sync-members:
+    name: Sync Members
+    runs-on: ubuntu-latest
+    if: ${{ !inputs.skip_members }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync GitHub org members to Lark department
+        run: npx tsx src/sync-members.ts
+
+  sync-repos:
+    name: Sync Repos
+    runs-on: ubuntu-latest
+    if: ${{ !inputs.skip_repos }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync GitHub repos to Lark group chats
+        run: npx tsx src/sync-repos.ts
+
+      - name: Commit updated mapping
+        if: ${{ !inputs.dry_run }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/repo-chat-mapping.json
+          git diff --staged --quiet || git commit -m "chore: update repo-chat mapping [skip ci]"
+          git push

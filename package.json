@@ -1,0 +1,26 @@
+{
+  "name": "feishu-github-sync",
+  "version": "1.0.0",
+  "description": "Automatically sync GitHub organizations with Lark/Feishu: members, repos, and event notifications",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync-members": "tsx src/sync-members.ts",
+    "sync-repos": "tsx src/sync-repos.ts",
+    "notify": "tsx src/notify.ts",
+    "setup-repos": "tsx src/setup-repos.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@larksuiteoapi/node-sdk": "^1.45.0",
+    "@octokit/rest": "^21.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.1",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

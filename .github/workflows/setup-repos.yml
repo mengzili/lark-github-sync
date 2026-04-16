@@ -1,0 +1,40 @@
+# Push the Lark notification workflow to all org repos (manual trigger)
+name: Setup Notification Workflows
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (no changes applied)"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  GITHUB_TOKEN: ${{ secrets.SYNC_GITHUB_TOKEN }}
+  GITHUB_ORG: ${{ vars.GITHUB_ORG }}
+  DRY_RUN: ${{ inputs.dry_run || 'false' }}
+  # Lark vars needed by config loader but not used in this script
+  LARK_APP_ID: ${{ secrets.LARK_APP_ID }}
+  LARK_APP_SECRET: ${{ secrets.LARK_APP_SECRET }}
+
+jobs:
+  setup:
+    name: Push notification workflow to repos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Push workflow files
+        run: npx tsx src/setup-repos.ts
