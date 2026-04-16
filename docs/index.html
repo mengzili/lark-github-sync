@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lark–GitHub Sync — Setup Guide</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d;
+    --text: #e6edf3; --muted: #8b949e; --accent: #58a6ff;
+    --green: #3fb950; --orange: #d29922; --purple: #bc8cff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--text);
+    max-width: 720px; margin: 0 auto; padding: 2rem 1.5rem;
+    line-height: 1.6;
+  }
+  h1 { font-size: 1.8rem; margin-bottom: .25rem; }
+  .subtitle { color: var(--muted); margin-bottom: 2rem; font-size: 1rem; }
+  .step {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1.5rem; margin-bottom: 1.25rem;
+  }
+  .step-header {
+    display: flex; align-items: center; gap: .75rem; margin-bottom: .75rem;
+  }
+  .step-num {
+    background: var(--accent); color: var(--bg); font-weight: 700;
+    width: 2rem; height: 2rem; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: .9rem;
+  }
+  .step-num.done { background: var(--green); }
+  .step-title { font-size: 1.15rem; font-weight: 600; }
+  .step p, .step li { color: var(--muted); font-size: .95rem; }
+  .step p { margin-bottom: .5rem; }
+  .step ul { padding-left: 1.25rem; margin-bottom: .75rem; }
+  .step li { margin-bottom: .25rem; }
+  .btn {
+    display: inline-block; padding: .55rem 1.1rem; border-radius: 8px;
+    text-decoration: none; font-weight: 600; font-size: .9rem;
+    transition: opacity .15s;
+  }
+  .btn:hover { opacity: .85; }
+  .btn-primary { background: var(--accent); color: var(--bg); }
+  .btn-outline {
+    border: 1px solid var(--border); color: var(--accent); background: none;
+  }
+  .btn-group { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .5rem; }
+  code {
+    background: var(--bg); border: 1px solid var(--border);
+    padding: .15rem .4rem; border-radius: 4px; font-size: .85rem;
+  }
+  table { width: 100%; border-collapse: collapse; margin: .75rem 0; font-size: .9rem; }
+  th, td {
+    text-align: left; padding: .4rem .6rem;
+    border-bottom: 1px solid var(--border);
+  }
+  th { color: var(--text); font-weight: 600; }
+  td { color: var(--muted); }
+  td code { white-space: nowrap; }
+  .time { color: var(--green); font-weight: 600; font-size: .85rem; }
+  .done-box {
+    background: linear-gradient(135deg, #1a3a2a, #162b22);
+    border-color: #238636; text-align: center; padding: 2rem;
+  }
+  .done-box h2 { color: var(--green); font-size: 1.4rem; margin-bottom: .5rem; }
+  #repoInput {
+    background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    padding: .45rem .75rem; border-radius: 6px; width: 100%; max-width: 400px;
+    font-size: .95rem; margin-bottom: .5rem;
+  }
+  #repoInput:focus { outline: none; border-color: var(--accent); }
+  .note {
+    background: #1c2128; border-left: 3px solid var(--orange);
+    padding: .75rem 1rem; border-radius: 0 6px 6px 0;
+    margin: .75rem 0; font-size: .9rem;
+  }
+  .note strong { color: var(--orange); }
+</style>
+</head>
+<body>
+
+<h1>Lark&ndash;GitHub Sync</h1>
+<p class="subtitle">Set up in ~5 minutes. Everything happens in the browser &mdash; nothing to install.</p>
+
+<div id="repo-config" class="step">
+  <div class="step-header">
+    <div class="step-num">0</div>
+    <span class="step-title">Your repo URL</span>
+  </div>
+  <p>Paste the URL of the repo you created from the template:</p>
+  <input id="repoInput" type="text" placeholder="https://github.com/your-org/lark-github-sync">
+  <p style="font-size:.8rem;color:var(--muted)">Links below will update automatically.</p>
+</div>
+
+<!-- Step 1 -->
+<div class="step">
+  <div class="step-header">
+    <div class="step-num">1</div>
+    <span class="step-title">Use this template</span>
+    <span class="time">~10 sec</span>
+  </div>
+  <p>Create a <strong>private</strong> copy in your GitHub org.</p>
+  <div class="btn-group">
+    <a class="btn btn-primary" id="link-template"
+       href="https://github.com/mengzili/lark-github-sync/generate"
+       target="_blank">Use this template &rarr;</a>
+  </div>
+</div>
+
+<!-- Step 2 -->
+<div class="step">
+  <div class="step-header">
+    <div class="step-num">2</div>
+    <span class="step-title">Create a Lark app &amp; get credentials</span>
+    <span class="time">~2 min</span>
+  </div>
+  <p>Open the developer console, create a <strong>Custom App</strong>, and add these permissions:</p>
+  <table>
+    <tr><th>Permission</th><th>Purpose</th></tr>
+    <tr><td><code>contact:user.base:readonly</code></td><td>Look up users by email</td></tr>
+    <tr><td><code>contact:department.base</code></td><td>Read departments</td></tr>
+    <tr><td><code>contact:contact</code></td><td>Manage contacts</td></tr>
+    <tr><td><code>im:chat</code></td><td>Create group chats</td></tr>
+    <tr><td><code>im:message:send_as_bot</code></td><td>Send notifications</td></tr>
+  </table>
+  <p>Submit for admin approval, then set <strong>App Availability → All employees</strong>.</p>
+  <div class="btn-group">
+    <a class="btn btn-primary" href="https://open.feishu.cn/app" target="_blank"
+       id="link-feishu">Feishu Console &rarr;</a>
+    <a class="btn btn-outline" href="https://open.larksuite.com/app" target="_blank"
+       id="link-lark">Lark Console &rarr;</a>
+  </div>
+  <p style="margin-top:.75rem">Copy the <strong>App ID</strong> and <strong>App Secret</strong> — you'll paste them in the next step.</p>
+</div>
+
+<!-- Step 3 -->
+<div class="step">
+  <div class="step-header">
+    <div class="step-num">3</div>
+    <span class="step-title">Set 3 secrets on your repo</span>
+    <span class="time">~1 min</span>
+  </div>
+  <p>Go to your repo's <strong>Settings → Secrets and variables → Actions → New repository secret</strong> and add:</p>
+  <table>
+    <tr><th>Secret name</th><th>Value</th></tr>
+    <tr><td><code>LARK_APP_ID</code></td><td>From the Lark app you just created</td></tr>
+    <tr><td><code>LARK_APP_SECRET</code></td><td>From the Lark app you just created</td></tr>
+    <tr><td><code>SYNC_GITHUB_TOKEN</code></td><td>A GitHub PAT &mdash; click the button below to create one with the right scopes</td></tr>
+  </table>
+  <div class="btn-group">
+    <a class="btn btn-primary" id="link-secrets"
+       href="#" target="_blank">Open repo Secrets &rarr;</a>
+    <a class="btn btn-outline" id="link-pat"
+       href="https://github.com/settings/tokens/new?description=lark-github-sync&scopes=repo,admin:org"
+       target="_blank">Create GitHub Token &rarr;</a>
+  </div>
+  <div class="note">
+    <strong>Tip:</strong> The "Create GitHub Token" link pre-fills the correct scopes.
+    Just click <em>Generate token</em> and paste the value as <code>SYNC_GITHUB_TOKEN</code>.
+  </div>
+</div>
+
+<!-- Step 4 -->
+<div class="step">
+  <div class="step-header">
+    <div class="step-num">4</div>
+    <span class="step-title">Run Initial Setup</span>
+    <span class="time">~1 min</span>
+  </div>
+  <p>Go to <strong>Actions → 🚀 Initial Setup → Run workflow</strong>. Fill in:</p>
+  <table>
+    <tr><th>Input</th><th>What to enter</th></tr>
+    <tr><td><code>github_org</code></td><td>Your GitHub organization name</td></tr>
+    <tr><td><code>lark_domain</code></td><td><code>feishu</code> (China) or <code>lark</code> (international)</td></tr>
+    <tr><td><code>lark_department_id</code></td><td><code>0</code> for all employees, or a specific department ID</td></tr>
+  </table>
+  <div class="btn-group">
+    <a class="btn btn-primary" id="link-actions"
+       href="#" target="_blank">Open Actions tab &rarr;</a>
+  </div>
+  <p style="margin-top:.75rem">The workflow will configure everything, sync members, create group chats, and deploy notifications.</p>
+</div>
+
+<!-- Done -->
+<div class="step done-box">
+  <h2>&#10003; You're done!</h2>
+  <p style="color:var(--muted)">
+    Everything syncs automatically every day at 02:00 UTC.<br>
+    New Lark department members get GitHub access automatically.<br>
+    Every repo push, PR, and issue sends a Lark notification.
+  </p>
+</div>
+
+<script>
+const input = document.getElementById('repoInput');
+const defaults = {
+  secrets: '#',
+  actions: '#',
+};
+
+function updateLinks() {
+  let url = input.value.trim().replace(/\/+$/, '');
+  if (!url.startsWith('http')) url = 'https://github.com/' + url;
+
+  // Extract owner/repo
+  const m = url.match(/github\.com\/([^/]+\/[^/]+)/);
+  if (!m) return;
+  const repo = m[1];
+
+  document.getElementById('link-secrets').href =
+    `https://github.com/${repo}/settings/secrets/actions/new`;
+  document.getElementById('link-actions').href =
+    `https://github.com/${repo}/actions/workflows/initial-setup.yml`;
+}
+
+input.addEventListener('input', updateLinks);
+
+// Try to auto-detect from page URL (works on GitHub Pages: org.github.io/repo)
+try {
+  const host = location.hostname;
+  const path = location.pathname.split('/').filter(Boolean);
+  if (host.endsWith('.github.io') && path.length > 0) {
+    const org = host.replace('.github.io', '');
+    const repo = path[0];
+    input.value = `https://github.com/${org}/${repo}`;
+    updateLinks();
+  }
+} catch {}
+</script>
+</body>
+</html>

@@ -1,0 +1,129 @@
+# One-shot setup — run this once after creating the repo from the template.
+# Configures org-level secrets/variables, runs the first sync, and deploys
+# notification workflows to every repo.  No CLI or local install needed.
+name: "\U0001F680 Initial Setup"
+
+on:
+  workflow_dispatch:
+    inputs:
+      github_org:
+        description: "Your GitHub organization name"
+        required: true
+        type: string
+      lark_domain:
+        description: "Lark platform"
+        required: true
+        type: choice
+        options:
+          - "feishu"
+          - "lark"
+        default: "feishu"
+      lark_department_id:
+        description: "Lark department ID to sync (0 = all employees)"
+        required: false
+        type: string
+        default: "0"
+
+permissions:
+  contents: write
+  actions: write
+
+env:
+  LARK_APP_ID: ${{ secrets.LARK_APP_ID }}
+  LARK_APP_SECRET: ${{ secrets.LARK_APP_SECRET }}
+  GITHUB_TOKEN: ${{ secrets.SYNC_GITHUB_TOKEN }}
+  GITHUB_ORG: ${{ inputs.github_org }}
+  LARK_DOMAIN: ${{ inputs.lark_domain }}
+  LARK_SOURCE_DEPARTMENT_ID: ${{ inputs.lark_department_id }}
+
+jobs:
+  # ── 1. Validate credentials and propagate config to org level ──────────
+  configure:
+    name: "Configure org secrets & variables"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate inputs
+        run: |
+          if [ -z "$LARK_APP_ID" ] || [ -z "$LARK_APP_SECRET" ]; then
+            echo "::error::LARK_APP_ID and LARK_APP_SECRET must be set in repo Settings → Secrets."
+            exit 1
+          fi
+          if [ -z "${{ secrets.SYNC_GITHUB_TOKEN }}" ]; then
+            echo "::error::SYNC_GITHUB_TOKEN must be set in repo Settings → Secrets."
+            exit 1
+          fi
+          echo "All required secrets are present."
+
+      - name: Promote secrets to org level
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_GITHUB_TOKEN }}
+        run: |
+          ORG="${{ inputs.github_org }}"
+          echo "Setting org-level secrets for $ORG ..."
+          gh secret set LARK_APP_ID     --org "$ORG" --visibility all --body "$LARK_APP_ID"       && echo "  ✓ LARK_APP_ID"
+          gh secret set LARK_APP_SECRET --org "$ORG" --visibility all --body "$LARK_APP_SECRET"   && echo "  ✓ LARK_APP_SECRET"
+          gh secret set SYNC_GITHUB_TOKEN --org "$ORG" --visibility all --body "${{ secrets.SYNC_GITHUB_TOKEN }}" && echo "  ✓ SYNC_GITHUB_TOKEN"
+
+      - name: Set org-level variables
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_GITHUB_TOKEN }}
+        run: |
+          ORG="${{ inputs.github_org }}"
+          echo "Setting org-level variables for $ORG ..."
+          gh variable set GITHUB_ORG                --org "$ORG" --visibility all --body "$ORG"                           && echo "  ✓ GITHUB_ORG = $ORG"
+          gh variable set LARK_DOMAIN               --org "$ORG" --visibility all --body "${{ inputs.lark_domain }}"      && echo "  ✓ LARK_DOMAIN = ${{ inputs.lark_domain }}"
+          gh variable set LARK_SOURCE_DEPARTMENT_ID --org "$ORG" --visibility all --body "${{ inputs.lark_department_id }}" && echo "  ✓ LARK_SOURCE_DEPARTMENT_ID = ${{ inputs.lark_department_id }}"
+
+  # ── 2. Sync members (Lark department → GitHub org) ────────────────────
+  sync-members:
+    name: "Sync members"
+    needs: configure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - name: Sync Lark department → GitHub org members
+        run: npx tsx src/sync-members.ts
+
+  # ── 3. Sync repos (create Lark group chats) ───────────────────────────
+  sync-repos:
+    name: "Sync repos → Lark chats"
+    needs: configure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - name: Create Lark group chats for repos
+        run: npx tsx src/sync-repos.ts
+      - name: Commit mapping
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/repo-chat-mapping.json
+          git diff --staged --quiet || git commit -m "chore: update repo-chat mapping [skip ci]"
+          git push
+
+  # ── 4. Deploy notification workflows to every org repo ─────────────────
+  deploy-notifications:
+    name: "Deploy notification workflows"
+    needs: [sync-repos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - name: Push lark-notify.yml to all org repos
+        run: npx tsx src/setup-repos.ts
