@@ -96,7 +96,7 @@ async function main() {
     larkAppId: appId,
     larkAppSecret: appSecret,
     larkDomain: domain,
-    larkDepartmentName: '',
+    larkSourceDepartmentId: '0',
     githubToken: '',
     githubOrg: '',
     dryRun: false,

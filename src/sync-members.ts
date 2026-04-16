@@ -1,29 +1,30 @@
 /**
- * Sync GitHub organization members → Lark department.
+ * Bidirectional member sync: Lark department ↔ GitHub organization.
+ *
+ * Source of truth: the configured Lark department.
  *
  * Flow:
- *   1. Fetch GitHub org members (with emails where available)
- *   2. Load optional manual user-mapping overrides
- *   3. Get-or-create the target Lark department
- *   4. Resolve GitHub emails → Lark open_ids
- *   5. Add new members / remove departed members
+ *   1. Fetch members of the Lark source department (with emails)
+ *   2. Fetch current GitHub org members (with emails)
+ *   3. Match by email
+ *   4. Lark members NOT in GitHub → invite to GitHub org
+ *   5. GitHub members NOT in Lark dept → optionally remove from GitHub org
+ *   6. Ensure all matched GitHub members are in the sync Lark department
  */
 
 import { Octokit } from '@octokit/rest';
-import fs from 'node:fs';
-import path from 'node:path';
 import { loadConfig } from './config.js';
 import {
   initLarkClient,
+  listDepartmentMembersDetailed,
   getOrCreateDepartment,
-  batchGetUserIdsByEmail,
   listDepartmentMembers,
+  batchGetUserIdsByEmail,
+  getLarkClient,
 } from './lark.js';
-import type { GitHubMember, MemberSyncResult, UserMapping } from './types.js';
+import type { GitHubMember, LarkMember, MemberSyncResult } from './types.js';
 
-const DATA_DIR = path.resolve(import.meta.dirname, '..', 'data');
-
-async function fetchOrgMembers(octokit: Octokit, org: string): Promise<GitHubMember[]> {
+async function fetchGitHubMembers(octokit: Octokit, org: string): Promise<GitHubMember[]> {
   const members: GitHubMember[] = [];
 
   for await (const response of octokit.paginate.iterator(octokit.orgs.listMembers, {
@@ -31,7 +32,6 @@ async function fetchOrgMembers(octokit: Octokit, org: string): Promise<GitHubMem
     per_page: 100,
   })) {
     for (const member of response.data) {
-      // Fetch per-user profile for email (list endpoint doesn't include it)
       const { data: profile } = await octokit.users.getByUsername({
         username: member.login,
       });
@@ -47,28 +47,22 @@ async function fetchOrgMembers(octokit: Octokit, org: string): Promise<GitHubMem
   return members;
 }
 
-function loadUserMapping(): UserMapping {
-  const filePath = path.join(DATA_DIR, 'user-mapping.json');
-  if (!fs.existsSync(filePath)) return {};
-  return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-}
-
-function resolveEmails(
-  members: GitHubMember[],
-  userMapping: UserMapping,
-): Map<string, string> {
-  // Map: GitHub login → resolved email
-  const result = new Map<string, string>();
-
-  for (const m of members) {
-    // Manual mapping takes priority
-    if (userMapping[m.login]) {
-      result.set(m.login, userMapping[m.login]);
-    } else if (m.email) {
-      result.set(m.login, m.email);
+/** Also fetch pending invitations so we don't re-invite. */
+async function fetchPendingInvitations(octokit: Octokit, org: string): Promise<Set<string>> {
+  const emails = new Set<string>();
+  try {
+    for await (const response of octokit.paginate.iterator(
+      octokit.orgs.listPendingInvitations,
+      { org, per_page: 100 },
+    )) {
+      for (const inv of response.data) {
+        if (inv.email) emails.add(inv.email.toLowerCase());
+      }
     }
+  } catch {
+    // May not have permission — that's okay
   }
-  return result;
+  return emails;
 }
 
 async function main() {
@@ -76,166 +70,135 @@ async function main() {
   initLarkClient(config);
   const octokit = new Octokit({ auth: config.githubToken });
 
-  console.log(`=== Member Sync: ${config.githubOrg} → Lark "${config.larkDepartmentName}" ===\n`);
+  const deptId = config.larkSourceDepartmentId;
+  console.log(`=== Bidirectional Sync: Lark dept(${deptId}) ↔ GitHub org(${config.githubOrg}) ===\n`);
 
-  // 1. Fetch GitHub org members
-  console.log('1. Fetching GitHub org members...');
-  const ghMembers = await fetchOrgMembers(octokit, config.githubOrg);
-  console.log(`   Found ${ghMembers.length} members\n`);
+  // 1. Fetch Lark department members
+  console.log('1. Fetching Lark department members...');
+  const larkMembers = await listDepartmentMembersDetailed(deptId);
+  const larkWithEmail = larkMembers.filter((m) => m.email);
+  console.log(`   ${larkMembers.length} total, ${larkWithEmail.length} with email\n`);
 
-  // 2. Load manual user-mapping overrides
-  const userMapping = loadUserMapping();
-  const overrideCount = Object.keys(userMapping).length;
-  if (overrideCount > 0) {
-    console.log(`   Loaded ${overrideCount} manual email overrides from user-mapping.json`);
+  // 2. Fetch GitHub org members
+  console.log('2. Fetching GitHub org members...');
+  const ghMembers = await fetchGitHubMembers(octokit, config.githubOrg);
+  const ghWithEmail = ghMembers.filter((m) => m.email);
+  console.log(`   ${ghMembers.length} total, ${ghWithEmail.length} with email\n`);
+
+  // 3. Fetch pending GitHub invitations
+  console.log('3. Checking pending invitations...');
+  const pendingInvites = await fetchPendingInvitations(octokit, config.githubOrg);
+  console.log(`   ${pendingInvites.size} pending\n`);
+
+  // 4. Build email indexes
+  const larkEmailMap = new Map<string, LarkMember>(); // email → LarkMember
+  for (const m of larkWithEmail) {
+    larkEmailMap.set(m.email!.toLowerCase(), m);
   }
 
-  // 3. Resolve emails
-  const loginToEmail = resolveEmails(ghMembers, userMapping);
-  const unmapped = ghMembers.filter((m) => !loginToEmail.has(m.login));
-  if (unmapped.length > 0) {
-    console.log(`   ⚠ ${unmapped.length} member(s) have no resolvable email:`);
-    for (const m of unmapped) {
-      console.log(`     - ${m.login} (add to data/user-mapping.json)`);
+  const ghEmailMap = new Map<string, GitHubMember>(); // email → GitHubMember
+  for (const m of ghWithEmail) {
+    ghEmailMap.set(m.email!.toLowerCase(), m);
+  }
+
+  // 5. Determine who to invite / remove
+  // Lark members with email not in GitHub → invite
+  const toInvite: Array<{ email: string; name: string }> = [];
+  for (const [email, lm] of larkEmailMap) {
+    if (!ghEmailMap.has(email) && !pendingInvites.has(email)) {
+      toInvite.push({ email, name: lm.name });
     }
-    console.log();
   }
 
-  // 4. Get-or-create Lark department
-  console.log(`2. Ensuring Lark department "${config.larkDepartmentName}" exists...`);
-  const deptId = await getOrCreateDepartment(config.larkDepartmentName);
+  // GitHub members with email not in Lark dept → remove
+  const toRemove: Array<{ login: string; email: string }> = [];
+  if (config.syncRemoveMembers) {
+    for (const [email, gm] of ghEmailMap) {
+      if (!larkEmailMap.has(email)) {
+        toRemove.push({ login: gm.login, email });
+      }
+    }
+  }
+
+  const alreadySynced = [...larkEmailMap.keys()].filter((e) => ghEmailMap.has(e));
+
+  console.log('4. Sync plan:');
+  console.log(`   Already synced: ${alreadySynced.length}`);
+  console.log(`   To invite to GitHub: ${toInvite.length}`);
+  console.log(`   To remove from GitHub: ${toRemove.length}`);
+
+  const larkNoEmail = larkMembers.filter((m) => !m.email);
+  const ghNoEmail = ghMembers.filter((m) => !m.email);
+  const unmatchable = larkNoEmail.length + ghNoEmail.length;
+  if (unmatchable > 0) {
+    console.log(`   Unmatchable (no email): ${larkNoEmail.length} Lark + ${ghNoEmail.length} GitHub`);
+  }
   console.log();
 
-  // 5. Resolve emails → Lark open_ids
-  console.log('3. Resolving GitHub emails → Lark user IDs...');
-  const allEmails = [...loginToEmail.values()];
-  const emailToOpenId = await batchGetUserIdsByEmail(allEmails);
-
-  const loginToOpenId = new Map<string, string>();
-  for (const [login, email] of loginToEmail) {
-    const openId = emailToOpenId.get(email);
-    if (openId) {
-      loginToOpenId.set(login, openId);
-    }
-  }
-
-  const noLarkAccount = [...loginToEmail.entries()].filter(
-    ([, email]) => !emailToOpenId.has(email),
-  );
-  if (noLarkAccount.length > 0) {
-    console.log(`   ⚠ ${noLarkAccount.length} member(s) have no matching Lark account:`);
-    for (const [login, email] of noLarkAccount) {
-      console.log(`     - ${login} (${email})`);
-    }
-    console.log();
-  }
-  console.log(`   Resolved ${loginToOpenId.size}/${ghMembers.length} members\n`);
-
-  // 6. Compare with current Lark department membership
-  console.log('4. Comparing with current Lark department membership...');
-  const currentMembers = new Set(await listDepartmentMembers(deptId));
-  const desiredMembers = new Set(loginToOpenId.values());
-
-  const toAdd = [...desiredMembers].filter((id) => !currentMembers.has(id));
-  const toRemove = [...currentMembers].filter((id) => !desiredMembers.has(id));
-
-  console.log(`   Current: ${currentMembers.size}, Desired: ${desiredMembers.size}`);
-  console.log(`   To add: ${toAdd.length}, To remove: ${toRemove.length}\n`);
-
-  // 7. Apply changes
+  // 6. Apply changes
   const result: MemberSyncResult = {
-    added: [],
+    invited: [],
     removed: [],
-    skipped: unmapped.map((m) => m.login),
+    alreadySynced: alreadySynced.map((e) => larkEmailMap.get(e)?.name ?? e),
+    unmatchable: [
+      ...larkNoEmail.map((m) => `Lark:${m.name}`),
+      ...ghNoEmail.map((m) => `GitHub:${m.login}`),
+    ],
     errors: [],
   };
 
   if (config.dryRun) {
     console.log('5. DRY RUN — no changes applied');
+    if (toInvite.length > 0) {
+      console.log('   Would invite:');
+      for (const u of toInvite) console.log(`     + ${u.name} (${u.email})`);
+    }
+    if (toRemove.length > 0) {
+      console.log('   Would remove:');
+      for (const u of toRemove) console.log(`     - ${u.login} (${u.email})`);
+    }
   } else {
     console.log('5. Applying changes...');
 
-    // Note: Lark's Contact API manages department membership through the user object.
-    // Adding a user to a department requires updating their department_ids via user.update().
-    // This requires the contact:contact scope.
-    // For users already in the org, we update their department list.
-
-    const c = (await import('./lark.js')).getLarkClient();
-
-    for (const openId of toAdd) {
+    // Invite Lark members to GitHub org
+    for (const u of toInvite) {
       try {
-        // Get current user info to preserve existing departments and required fields
-        const userRes = await c.contact.user.get({
-          path: { user_id: openId },
-          params: { user_id_type: 'open_id', department_id_type: 'open_department_id' },
+        await octokit.orgs.createInvitation({
+          org: config.githubOrg,
+          email: u.email,
+          role: 'direct_member',
         });
-        const user = userRes?.data?.user;
-        const currentDepts = user?.department_ids ?? [];
-
-        if (!currentDepts.includes(deptId)) {
-          await c.contact.user.update({
-            path: { user_id: openId },
-            data: {
-              name: user?.name ?? '',
-              mobile: user?.mobile ?? '',
-              employee_type: user?.employee_type ?? 1,
-              department_ids: [...currentDepts, deptId],
-            },
-            params: { user_id_type: 'open_id', department_id_type: 'open_department_id' },
-          });
-        }
-        const login = [...loginToOpenId.entries()].find(([, id]) => id === openId)?.[0] ?? openId;
-        result.added.push(login);
-        console.log(`   + Added ${login}`);
+        result.invited.push(`${u.name} (${u.email})`);
+        console.log(`   + Invited ${u.name} (${u.email})`);
       } catch (err) {
-        const login = [...loginToOpenId.entries()].find(([, id]) => id === openId)?.[0] ?? openId;
-        result.errors.push(`Failed to add ${login}: ${err}`);
-        console.error(`   ✗ Failed to add ${login}: ${err}`);
+        result.errors.push(`Invite ${u.email}: ${err}`);
+        console.error(`   x Failed to invite ${u.email}: ${err}`);
       }
     }
 
-    if (config.syncRemoveMembers) {
-      for (const openId of toRemove) {
-        try {
-          const userRes = await c.contact.user.get({
-            path: { user_id: openId },
-            params: { user_id_type: 'open_id', department_id_type: 'open_department_id' },
-          });
-          const user = userRes?.data?.user;
-          const currentDepts = user?.department_ids ?? [];
-          const newDepts = currentDepts.filter((d: string) => d !== deptId);
-
-          // Don't remove from department if it's their only department
-          if (newDepts.length > 0) {
-            await c.contact.user.update({
-              path: { user_id: openId },
-              data: {
-                name: user?.name ?? '',
-                mobile: user?.mobile ?? '',
-                employee_type: user?.employee_type ?? 1,
-                department_ids: newDepts,
-              },
-              params: { user_id_type: 'open_id', department_id_type: 'open_department_id' },
-            });
-            result.removed.push(openId);
-            console.log(`   - Removed ${openId}`);
-          } else {
-            console.log(`   ~ Skipped removing ${openId} (only department)`);
-          }
-        } catch (err) {
-          result.errors.push(`Failed to remove ${openId}: ${err}`);
-          console.error(`   ✗ Failed to remove ${openId}: ${err}`);
-        }
+    // Remove GitHub members not in Lark dept
+    for (const u of toRemove) {
+      try {
+        await octokit.orgs.removeMembershipForUser({
+          org: config.githubOrg,
+          username: u.login,
+        });
+        result.removed.push(`${u.login} (${u.email})`);
+        console.log(`   - Removed ${u.login} (${u.email})`);
+      } catch (err) {
+        result.errors.push(`Remove ${u.login}: ${err}`);
+        console.error(`   x Failed to remove ${u.login}: ${err}`);
       }
     }
   }
 
   // Summary
   console.log('\n=== Summary ===');
-  console.log(`Added:   ${result.added.length}`);
-  console.log(`Removed: ${result.removed.length}`);
-  console.log(`Skipped: ${result.skipped.length} (no email)`);
-  console.log(`Errors:  ${result.errors.length}`);
+  console.log(`Synced:      ${result.alreadySynced.length}`);
+  console.log(`Invited:     ${result.invited.length}`);
+  console.log(`Removed:     ${result.removed.length}`);
+  console.log(`Unmatchable: ${result.unmatchable.length}`);
+  console.log(`Errors:      ${result.errors.length}`);
 
   if (result.errors.length > 0) {
     process.exit(1);

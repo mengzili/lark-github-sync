@@ -5,6 +5,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "setup": "tsx src/setup-wizard.ts",
     "sync-members": "tsx src/sync-members.ts",
     "sync-repos": "tsx src/sync-repos.ts",
     "notify": "tsx src/notify.ts",

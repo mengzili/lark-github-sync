@@ -1,5 +1,6 @@
 import * as lark from '@larksuiteoapi/node-sdk';
 import type { Config } from './config.js';
+import type { LarkDepartment, LarkMember } from './types.js';
 
 let client: lark.Client;
 
@@ -9,6 +10,21 @@ export function initLarkClient(config: Config): lark.Client {
     appSecret: config.larkAppSecret,
     appType: lark.AppType.SelfBuild,
     domain: config.larkDomain,
+  });
+  return client;
+}
+
+/** Create a Lark client directly from app credentials (for the setup wizard). */
+export function initLarkClientDirect(
+  appId: string,
+  appSecret: string,
+  domain: typeof lark.Domain.Feishu | typeof lark.Domain.Lark,
+): lark.Client {
+  client = new lark.Client({
+    appId,
+    appSecret,
+    appType: lark.AppType.SelfBuild,
+    domain,
   });
   return client;
 }
@@ -241,4 +257,93 @@ export async function sendTextMessage(chatId: string, text: string): Promise<voi
       receive_id_type: 'chat_id',
     },
   });
+}
+
+// ---------------------------------------------------------------------------
+// Department listing (for setup wizard)
+// ---------------------------------------------------------------------------
+
+/** List child departments under a parent. Use "0" for root. */
+export async function listDepartments(parentId = '0'): Promise<LarkDepartment[]> {
+  const c = getLarkClient();
+  const departments: LarkDepartment[] = [];
+  let pageToken: string | undefined;
+
+  do {
+    const res = await c.contact.department.list({
+      params: {
+        parent_department_id: parentId,
+        fetch_child: true,
+        page_size: 50,
+        page_token: pageToken,
+        department_id_type: 'open_department_id',
+      },
+    });
+
+    const items = res?.data?.items ?? [];
+    for (const dept of items) {
+      departments.push({
+        department_id: dept.open_department_id ?? '',
+        name: dept.name ?? '',
+        member_count: (dept as any).member_count ?? null,
+        parent_department_id: dept.parent_department_id ?? '0',
+      });
+    }
+    pageToken = res?.data?.page_token ?? undefined;
+  } while (pageToken);
+
+  return departments;
+}
+
+// ---------------------------------------------------------------------------
+// Detailed member listing (for bidirectional sync)
+// ---------------------------------------------------------------------------
+
+/** List all members in a department with their name, email, and department IDs. */
+export async function listDepartmentMembersDetailed(
+  departmentId: string,
+): Promise<LarkMember[]> {
+  const c = getLarkClient();
+  const members: LarkMember[] = [];
+  let pageToken: string | undefined;
+
+  do {
+    const res = await c.contact.user.findByDepartment({
+      params: {
+        department_id: departmentId,
+        department_id_type: 'open_department_id',
+        user_id_type: 'open_id',
+        page_size: 50,
+        page_token: pageToken,
+      },
+    });
+
+    const items = res?.data?.items ?? [];
+    for (const user of items) {
+      if (user.open_id) {
+        members.push({
+          open_id: user.open_id,
+          name: user.name ?? '',
+          email: user.email ?? user.enterprise_email ?? null,
+          department_ids: user.department_ids ?? [],
+        });
+      }
+    }
+    pageToken = res?.data?.page_token ?? undefined;
+  } while (pageToken);
+
+  return members;
+}
+
+/** Verify that the Lark credentials are valid by fetching the tenant token. */
+export async function verifyCredentials(): Promise<boolean> {
+  try {
+    // A lightweight call to verify the app credentials work
+    await getLarkClient().contact.department.list({
+      params: { parent_department_id: '0', page_size: 1 },
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }

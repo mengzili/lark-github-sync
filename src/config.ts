@@ -5,7 +5,10 @@ export interface Config {
   larkAppId: string;
   larkAppSecret: string;
   larkDomain: typeof lark.Domain.Feishu | typeof lark.Domain.Lark;
-  larkDepartmentName: string;
+
+  // The Lark department whose members map to the GitHub org.
+  // Use "0" for the root (entire company).
+  larkSourceDepartmentId: string;
 
   // GitHub
   githubToken: string;
@@ -32,8 +35,8 @@ export function loadConfig(): Config {
       process.env.LARK_DOMAIN === 'lark'
         ? lark.Domain.Lark
         : lark.Domain.Feishu,
-    larkDepartmentName:
-      process.env.LARK_DEPARTMENT_NAME || 'GitHub Organization',
+    larkSourceDepartmentId:
+      process.env.LARK_SOURCE_DEPARTMENT_ID || '0',
 
     githubToken: requiredEnv('GITHUB_TOKEN'),
     githubOrg: requiredEnv('GITHUB_ORG'),

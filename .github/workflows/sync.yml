@@ -1,5 +1,5 @@
-# Scheduled sync: GitHub org members → Lark department, repos → Lark group chats
-name: Sync GitHub → Lark
+# Bidirectional sync: Lark department ↔ GitHub org, repos → Lark group chats
+name: "Sync GitHub \u2194 Lark"
 
 on:
   schedule:
@@ -31,7 +31,7 @@ env:
   LARK_APP_ID: ${{ secrets.LARK_APP_ID }}
   LARK_APP_SECRET: ${{ secrets.LARK_APP_SECRET }}
   LARK_DOMAIN: ${{ vars.LARK_DOMAIN || 'feishu' }}
-  LARK_DEPARTMENT_NAME: ${{ vars.LARK_DEPARTMENT_NAME || 'GitHub Organization' }}
+  LARK_SOURCE_DEPARTMENT_ID: ${{ vars.LARK_SOURCE_DEPARTMENT_ID || '0' }}
   GITHUB_TOKEN: ${{ secrets.SYNC_GITHUB_TOKEN }}
   GITHUB_ORG: ${{ vars.GITHUB_ORG }}
   DRY_RUN: ${{ inputs.dry_run || 'false' }}
@@ -53,7 +53,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Sync GitHub org members to Lark department
+      - name: Sync Lark department ↔ GitHub org members
         run: npx tsx src/sync-members.ts
 
   sync-repos:

@@ -7,9 +7,12 @@ export interface RepoChatMapping {
   };
 }
 
-/** Manual mapping overrides: GitHub login → Lark email */
-export interface UserMapping {
-  [githubLogin: string]: string;
+/** A Lark department member with identity info */
+export interface LarkMember {
+  open_id: string;
+  name: string;
+  email: string | null;
+  department_ids: string[];
 }
 
 /** A GitHub org member with optional email */
@@ -18,6 +21,14 @@ export interface GitHubMember {
   email: string | null;
   avatar_url: string;
   html_url: string;
+}
+
+/** A Lark department summary */
+export interface LarkDepartment {
+  department_id: string;
+  name: string;
+  member_count: number | null;
+  parent_department_id: string;
 }
 
 /** A GitHub repo summary */
@@ -32,9 +43,10 @@ export interface GitHubRepo {
 
 /** Result of a member sync operation */
 export interface MemberSyncResult {
-  added: string[];
+  invited: string[];
   removed: string[];
-  skipped: string[];
+  alreadySynced: string[];
+  unmatchable: string[];
   errors: string[];
 }
 
