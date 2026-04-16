@@ -14,7 +14,7 @@
 
 import fs from 'node:fs';
 import * as lark from '@larksuiteoapi/node-sdk';
-import { initLarkClient, listBotChats, sendCardMessage } from './lark.js';
+import { initLarkClient, listBotChats, sendCardMessage, formatLarkError } from './lark.js';
 import {
   pushCard,
   issueCard,
@@ -126,6 +126,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error('Failed to send notification:', err);
+  console.error('Failed to send notification:', formatLarkError(err));
   process.exit(1);
 });

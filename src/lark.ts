@@ -4,6 +4,25 @@ import type { LarkDepartment, LarkMember } from './types.js';
 
 let client: lark.Client;
 
+/** Extract a human-readable message from a Lark SDK / Axios error. */
+export function formatLarkError(err: unknown): string {
+  if (err && typeof err === 'object') {
+    // Axios error with Lark response body
+    const resp = (err as any).response?.data;
+    if (resp?.msg) {
+      const parts = [`Lark API error ${resp.code ?? ''}: ${resp.msg}`];
+      if (resp.permission_violations) {
+        parts.push('Missing permissions — add them in the Lark developer console:');
+        for (const v of resp.permission_violations) {
+          if (v.subject) parts.push(`  - ${v.subject}`);
+        }
+      }
+      return parts.join('\n');
+    }
+  }
+  return String(err);
+}
+
 export function initLarkClient(config: Config): lark.Client {
   client = new lark.Client({
     appId: config.larkAppId,

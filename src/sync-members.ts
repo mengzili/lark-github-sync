@@ -17,10 +17,7 @@ import { loadConfig } from './config.js';
 import {
   initLarkClient,
   listDepartmentMembersDetailed,
-  getOrCreateDepartment,
-  listDepartmentMembers,
-  batchGetUserIdsByEmail,
-  getLarkClient,
+  formatLarkError,
 } from './lark.js';
 import type { GitHubMember, LarkMember, MemberSyncResult } from './types.js';
 
@@ -206,6 +203,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error('Fatal error:', err);
+  console.error('Fatal error:', formatLarkError(err));
   process.exit(1);
 });

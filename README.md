@@ -26,7 +26,8 @@ Open the developer console ([Feishu](https://open.feishu.cn/app) / [Lark](https:
 |---|---|
 | `contact:user.base:readonly` | Look up users by email |
 | `contact:department.base` | Read departments |
-| `contact:contact` | Manage contacts |
+| `contact:contact:readonly_as_app` | List department members |
+| `contact:contact` | Manage department membership |
 | `im:chat` | Create group chats |
 | `im:message:send_as_bot` | Send notifications |
 

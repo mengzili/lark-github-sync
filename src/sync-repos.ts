@@ -18,6 +18,7 @@ import {
   createGroupChat,
   listBotChats,
   sendCardMessage,
+  formatLarkError,
 } from './lark.js';
 import type { GitHubRepo, RepoChatMapping, RepoSyncResult } from './types.js';
 
@@ -215,6 +216,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error('Fatal error:', err);
+  console.error('Fatal error:', formatLarkError(err));
   process.exit(1);
 });
