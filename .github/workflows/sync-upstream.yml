@@ -43,7 +43,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
-          git merge upstream/main --no-edit || true
+          git merge upstream/main --no-edit --allow-unrelated-histories || true
 
           # If there are conflicts, commit them as-is so the PR shows what needs resolving
           if [ -n "$(git ls-files -u)" ]; then
