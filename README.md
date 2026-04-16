@@ -12,7 +12,7 @@ Automatically sync your GitHub organization with Lark (Feishu). Members, repos, 
 
 ## Setup (100% in the browser)
 
-> **[Open the visual setup guide](https://mengzili.github.io/lark-github-sync/)** for clickable links and step-by-step instructions.
+> **[Open the visual setup guide](https://zilimeng.com/lark-github-sync/)** for clickable links and step-by-step instructions.
 
 ### 1. Use this template &nbsp;`~10 sec`
 
