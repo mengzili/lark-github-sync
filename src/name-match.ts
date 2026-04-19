@@ -39,12 +39,26 @@ export function pinyinOf(name: string): string {
 /** All reasonable string forms to compare for a single name. */
 function forms(name: string): string[] {
   const set = new Set<string>();
-  set.add(normalize(name));
+  const n = normalize(name);
+  set.add(n);
   const p = pinyinOf(name);
   if (p) set.add(p);
-  // Also try joined-no-spaces form ("zhangwei") — a common GitHub-handle shape
+  // Joined-no-spaces forms — common in GitHub handles
   set.add(p.replace(/\s+/g, ''));
-  set.add(normalize(name).replace(/\s+/g, ''));
+  set.add(n.replace(/\s+/g, ''));
+
+  // Reversed-token forms: English "Zili Meng" becomes "Meng Zili" which matches
+  // the Chinese surname-first convention (e.g. pinyin of 孟子立 → "meng zi li").
+  const nt = n.split(/\s+/).filter(Boolean);
+  if (nt.length >= 2) {
+    set.add(nt.slice().reverse().join(' '));
+    set.add(nt.slice().reverse().join(''));
+  }
+  const pt = p.split(/\s+/).filter(Boolean);
+  if (pt.length >= 2) {
+    set.add(pt.slice().reverse().join(' '));
+    set.add(pt.slice().reverse().join(''));
+  }
   return [...set].filter(Boolean);
 }
 

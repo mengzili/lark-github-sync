@@ -171,7 +171,12 @@ async function init() {
 async function loadPending() {
   try {
     const file = await ghApi('GET', `/repos/${ORG}/${SYNC_REPO}/contents/data/user-mapping.json`);
-    const json = JSON.parse(atob(file.content.replace(/\s/g, '')));
+    // file.content is base64 of UTF-8 bytes. atob gives a Latin-1 binary string;
+    // decode it properly with TextDecoder so Chinese names render correctly.
+    const bin = atob(file.content.replace(/\s/g, ''));
+    const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    const utf8 = new TextDecoder('utf-8').decode(bytes);
+    const json = JSON.parse(utf8);
     pending = json.pending || {};
   } catch (err) {
     if (err.message.includes('404')) {
