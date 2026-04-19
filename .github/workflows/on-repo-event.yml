@@ -1,0 +1,49 @@
+# Handle a single GitHub repo lifecycle event (created / renamed / archived /
+# deleted) dispatched from the centralized Worker via repository_dispatch.
+name: "Repo Event"
+
+on:
+  repository_dispatch:
+    types: [repo-changed]
+
+permissions:
+  contents: write
+  actions: write
+
+# Serialize mapping writes so concurrent events don't clobber the file.
+concurrency:
+  group: repo-mapping-write
+  cancel-in-progress: false
+
+env:
+  LARK_APP_ID: ${{ secrets.LARK_APP_ID }}
+  LARK_APP_SECRET: ${{ secrets.LARK_APP_SECRET }}
+  LARK_DOMAIN: ${{ vars.LARK_DOMAIN || 'feishu' }}
+  LARK_SOURCE_DEPARTMENT_ID: ${{ vars.LARK_SOURCE_DEPARTMENT_ID || '0' }}
+  GITHUB_TOKEN: ${{ secrets.SYNC_GITHUB_TOKEN }}
+  GITHUB_ORG: ${{ vars.GITHUB_ORG }}
+
+jobs:
+  handle:
+    name: "${{ github.event.client_payload.action }}: ${{ github.event.client_payload.full_name }}"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Handle event
+        run: npx tsx src/handle-repo-event.ts
+
+      - name: Commit updated mapping
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/repo-chat-mapping.json
+          git diff --staged --quiet || git commit -m "chore: ${{ github.event.client_payload.action }} ${{ github.event.client_payload.full_name }} [skip ci]"
+          git push

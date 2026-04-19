@@ -29,7 +29,8 @@ import {
   workflowRunCard,
   genericEventCard,
 } from './cards.js';
-import type { GitHubEventType } from './types.js';
+import { loadUserMapping } from './user-mapping.js';
+import type { UserMapping } from './types.js';
 
 function requiredEnv(name: string): string {
   const v = process.env[name];
@@ -38,29 +39,26 @@ function requiredEnv(name: string): string {
 }
 
 /** Build the card for a given event type + payload. */
-function buildCard(eventName: string, payload: any): object | null {
-  const builders: Record<string, (p: any) => object> = {
-    push: pushCard,
-    issues: issueCard,
-    issue_comment: issueCommentCard,
-    pull_request: pullRequestCard,
-    pull_request_review: pullRequestReviewCard,
-    release: releaseCard,
-    create: createRefCard,
-    delete: deleteRefCard,
-    fork: forkCard,
-    star: starCard,
-    workflow_run: workflowRunCard,
-  };
-
+function buildCard(eventName: string, payload: any, mapping: UserMapping): object | null {
   // Filter out noisy events
   if (eventName === 'workflow_run' && payload.action !== 'completed') return null;
   if (eventName === 'star' && payload.action === 'deleted') return null;
   if (eventName === 'push' && (payload.commits ?? []).length === 0 && !payload.forced) return null;
 
-  const builder = builders[eventName];
-  if (builder) return builder(payload);
-  return genericEventCard(eventName, payload);
+  switch (eventName) {
+    case 'push': return pushCard(payload);
+    case 'issues': return issueCard(payload);
+    case 'issue_comment': return issueCommentCard(payload);
+    case 'pull_request': return pullRequestCard(payload, mapping);
+    case 'pull_request_review': return pullRequestReviewCard(payload, mapping);
+    case 'release': return releaseCard(payload);
+    case 'create': return createRefCard(payload);
+    case 'delete': return deleteRefCard(payload);
+    case 'fork': return forkCard(payload);
+    case 'star': return starCard(payload);
+    case 'workflow_run': return workflowRunCard(payload);
+    default: return genericEventCard(eventName, payload);
+  }
 }
 
 async function resolveChatId(repo: string): Promise<string> {
@@ -103,6 +101,9 @@ async function main() {
     syncRemoveMembers: false,
   });
 
+  // Load the user mapping (for @-mentions). Absent file is fine — treat as empty.
+  const mapping = loadUserMapping();
+
   // Read event payload
   const payload = JSON.parse(fs.readFileSync(eventPath, 'utf-8'));
 
@@ -110,7 +111,7 @@ async function main() {
   console.log(`Repo:  ${repo}`);
 
   // Build card
-  const card = buildCard(eventName, payload);
+  const card = buildCard(eventName, payload, mapping);
   if (!card) {
     console.log('Event filtered out (not actionable). Skipping notification.');
     return;

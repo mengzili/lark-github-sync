@@ -1,6 +1,7 @@
 # One-shot setup — run this once after creating the repo from the template.
-# Configures org-level secrets/variables, runs the first sync, and deploys
-# notification workflows to every repo.  No CLI or local install needed.
+# Configures org-level secrets/variables, registers the GitHub org webhook with
+# the central Worker, creates the Lark admin chat, runs the first sync, and
+# deploys notification workflows to every repo. No CLI or local install needed.
 name: "\U0001F680 Initial Setup"
 
 on:
@@ -23,6 +24,15 @@ on:
         required: false
         type: string
         default: "0"
+      admin_email:
+        description: "Lark email of the admin who will receive approval cards"
+        required: true
+        type: string
+      worker_base_url:
+        description: "Central Worker base URL (leave default unless self-hosted)"
+        required: false
+        type: string
+        default: "https://feishu-github-sync-oauth.workers.dev"
 
 permissions:
   contents: write
@@ -35,6 +45,8 @@ env:
   GITHUB_ORG: ${{ inputs.github_org }}
   LARK_DOMAIN: ${{ inputs.lark_domain }}
   LARK_SOURCE_DEPARTMENT_ID: ${{ inputs.lark_department_id }}
+  ADMIN_EMAIL: ${{ inputs.admin_email }}
+  WORKER_BASE_URL: ${{ inputs.worker_base_url }}
 
 jobs:
   # ── 1. Validate credentials and propagate config to org level ──────────
@@ -54,6 +66,10 @@ jobs:
             echo "::error::SYNC_GITHUB_TOKEN must be set in repo Settings → Secrets."
             exit 1
           fi
+          if [ -z "$ADMIN_EMAIL" ]; then
+            echo "::error::admin_email input is required."
+            exit 1
+          fi
           echo "All required secrets are present."
 
       - name: Promote secrets to org level
@@ -62,9 +78,9 @@ jobs:
         run: |
           ORG="${{ inputs.github_org }}"
           echo "Setting org-level secrets for $ORG ..."
-          gh secret set LARK_APP_ID     --org "$ORG" --visibility all --body "$LARK_APP_ID"       && echo "  ✓ LARK_APP_ID"
-          gh secret set LARK_APP_SECRET --org "$ORG" --visibility all --body "$LARK_APP_SECRET"   && echo "  ✓ LARK_APP_SECRET"
-          gh secret set SYNC_GITHUB_TOKEN --org "$ORG" --visibility all --body "${{ secrets.SYNC_GITHUB_TOKEN }}" && echo "  ✓ SYNC_GITHUB_TOKEN"
+          gh secret set LARK_APP_ID       --org "$ORG" --visibility all --body "$LARK_APP_ID"                              && echo "  ✓ LARK_APP_ID"
+          gh secret set LARK_APP_SECRET   --org "$ORG" --visibility all --body "$LARK_APP_SECRET"                          && echo "  ✓ LARK_APP_SECRET"
+          gh secret set SYNC_GITHUB_TOKEN --org "$ORG" --visibility all --body "${{ secrets.SYNC_GITHUB_TOKEN }}"           && echo "  ✓ SYNC_GITHUB_TOKEN"
 
       - name: Set org-level variables
         env:
@@ -72,13 +88,13 @@ jobs:
         run: |
           ORG="${{ inputs.github_org }}"
           echo "Setting org-level variables for $ORG ..."
-          gh variable set GITHUB_ORG                --org "$ORG" --visibility all --body "$ORG"                           && echo "  ✓ GITHUB_ORG = $ORG"
-          gh variable set LARK_DOMAIN               --org "$ORG" --visibility all --body "${{ inputs.lark_domain }}"      && echo "  ✓ LARK_DOMAIN = ${{ inputs.lark_domain }}"
-          gh variable set LARK_SOURCE_DEPARTMENT_ID --org "$ORG" --visibility all --body "${{ inputs.lark_department_id }}" && echo "  ✓ LARK_SOURCE_DEPARTMENT_ID = ${{ inputs.lark_department_id }}"
+          gh variable set GITHUB_ORG                --org "$ORG" --visibility all --body "$ORG"                                 && echo "  ✓ GITHUB_ORG = $ORG"
+          gh variable set LARK_DOMAIN               --org "$ORG" --visibility all --body "${{ inputs.lark_domain }}"            && echo "  ✓ LARK_DOMAIN = ${{ inputs.lark_domain }}"
+          gh variable set LARK_SOURCE_DEPARTMENT_ID --org "$ORG" --visibility all --body "${{ inputs.lark_department_id }}"     && echo "  ✓ LARK_SOURCE_DEPARTMENT_ID = ${{ inputs.lark_department_id }}"
 
-  # ── 2. Sync members (Lark department → GitHub org) ────────────────────
-  sync-members:
-    name: "Sync members"
+  # ── 2. Admin chat + webhook + tenant registration ─────────────────────
+  bootstrap:
+    name: "Admin chat, webhook, tenant registration"
     needs: configure
     runs-on: ubuntu-latest
     steps:
@@ -88,13 +104,37 @@ jobs:
           node-version: "20"
           cache: "npm"
       - run: npm ci
-      - name: Sync Lark department → GitHub org members
-        run: npx tsx src/sync-members.ts
+      - name: Bootstrap admin chat + webhook + tenant
+        run: npx tsx src/setup-bootstrap.ts
 
-  # ── 3. Sync repos (create Lark group chats) ───────────────────────────
+  # ── 3. Sync members (Lark department ↔ GitHub org) ────────────────────
+  sync-members:
+    name: "Sync members"
+    needs: bootstrap
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - name: Two-way sync Lark department ↔ GitHub org members
+        env:
+          LARK_ADMIN_CHAT_ID: ${{ vars.LARK_ADMIN_CHAT_ID }}
+        run: npx tsx src/sync-members.ts
+      - name: Commit updated mapping
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/user-mapping.json
+          git diff --staged --quiet || git commit -m "chore: initial member sync [skip ci]"
+          git push
+
+  # ── 4. Sync repos (create Lark group chats) ───────────────────────────
   sync-repos:
     name: "Sync repos → Lark chats"
-    needs: configure
+    needs: bootstrap
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -113,7 +153,7 @@ jobs:
           git diff --staged --quiet || git commit -m "chore: update repo-chat mapping [skip ci]"
           git push
 
-  # ── 4. Deploy notification workflows to every org repo ─────────────────
+  # ── 5. Deploy notification workflows to every org repo ─────────────────
   deploy-notifications:
     name: "Deploy notification workflows"
     needs: [sync-repos]

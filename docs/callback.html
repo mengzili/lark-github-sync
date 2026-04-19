@@ -11,7 +11,7 @@
   if (token && window.opener) {
     window.opener.postMessage(
       { type: 'github-oauth-token', token },
-      'https://zilimeng.com'
+      location.origin
     );
   }
   window.close();
@@ -19,3 +19,4 @@
 </script>
 </body>
 </html>
+

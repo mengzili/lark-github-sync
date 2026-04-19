@@ -3,7 +3,14 @@ main = "src/index.ts"
 compatibility_date = "2024-09-01"
 
 [vars]
-GITHUB_CLIENT_ID = "REPLACE_WITH_YOUR_OAUTH_APP_CLIENT_ID"
+GITHUB_CLIENT_ID = "Ov23lisGSkc8Xdnki6Im"
 ALLOWED_ORIGIN = "https://zilimeng.com"
 
 # GITHUB_CLIENT_SECRET is set via:  npx wrangler secret put GITHUB_CLIENT_SECRET
+
+# KV namespace for tenant records.
+# Create with:  npx wrangler kv namespace create TENANTS
+# Then paste the returned id below.
+[[kv_namespaces]]
+binding = "TENANTS"
+id = "fb924f9581ce415d983251b7e5b14701"

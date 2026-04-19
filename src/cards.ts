@@ -5,6 +5,8 @@
  * Ref: https://open.larksuite.com/document/common-capabilities/message-card/message-cards-content
  */
 
+import type { UserMapping } from './types.js';
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -54,6 +56,23 @@ function divider() {
 
 function truncate(s: string, max: number): string {
   return s.length > max ? s.slice(0, max - 1) + '…' : s;
+}
+
+/**
+ * Render an @-mention if we have a matched Lark open_id, else fall back to the
+ * plain login/name. Safe to call with an empty mapping — returns the fallback.
+ */
+export function at(
+  login: string,
+  mapping?: Pick<UserMapping, 'entries'>,
+): string {
+  if (!mapping) return login;
+  const entry = mapping.entries[login];
+  if (entry?.status === 'matched' && entry.lark_open_id) {
+    const display = entry.lark_name || login;
+    return `<at user_id="${entry.lark_open_id}">${display}</at>`;
+  }
+  return login;
 }
 
 // ---------------------------------------------------------------------------
@@ -167,7 +186,7 @@ export function issueCommentCard(payload: any) {
 // Pull request event
 // ---------------------------------------------------------------------------
 
-export function pullRequestCard(payload: any) {
+export function pullRequestCard(payload: any, mapping?: UserMapping) {
   const action: string = payload.action ?? 'unknown';
   const pr = payload.pull_request ?? {};
   const repo = payload.repository?.full_name ?? 'unknown';
@@ -201,6 +220,17 @@ export function pullRequestCard(payload: any) {
     .filter(Boolean)
     .join('  |  ');
 
+  // On review_requested, ping the reviewer(s) if we have their Lark open_id.
+  // Otherwise list them by login.
+  const reviewerLogins: string[] = (pr.requested_reviewers ?? []).map(
+    (r: any) => r.login,
+  );
+  const reviewersLine = reviewerLogins.length
+    ? (action === 'review_requested' && mapping
+        ? `**Reviewers:** ${reviewerLogins.map((l) => at(l, mapping)).join(' ')}`
+        : `**Reviewers:** ${reviewerLogins.join(', ')}`)
+    : null;
+
   return card(`🔀 PR ${displayAction}: #${pr.number}`, color, [
     md(
       [
@@ -211,9 +241,7 @@ export function pullRequestCard(payload: any) {
         `**Action by:** ${sender}`,
         `**Branch:** \`${pr.head?.ref ?? '?'}\` → \`${pr.base?.ref ?? '?'}\``,
         stats || null,
-        pr.requested_reviewers?.length
-          ? `**Reviewers:** ${pr.requested_reviewers.map((r: any) => r.login).join(', ')}`
-          : null,
+        reviewersLine,
       ]
         .filter(Boolean)
         .join('\n'),
@@ -227,7 +255,7 @@ export function pullRequestCard(payload: any) {
 // Pull request review event
 // ---------------------------------------------------------------------------
 
-export function pullRequestReviewCard(payload: any) {
+export function pullRequestReviewCard(payload: any, mapping?: UserMapping) {
   const review = payload.review ?? {};
   const pr = payload.pull_request ?? {};
   const repo = payload.repository?.full_name ?? 'unknown';
@@ -240,6 +268,12 @@ export function pullRequestReviewCard(payload: any) {
 
   const info = stateMap[review.state] ?? { label: review.state, color: 'grey' as HeaderColor };
 
+  // @-ping the PR author so they know they got a review
+  const authorLogin = pr.user?.login ?? 'unknown';
+  const authorLine = mapping
+    ? `**Author:** ${at(authorLogin, mapping)}`
+    : `**Author:** ${authorLogin}`;
+
   return card(`👀 Review ${info.label}: PR #${pr.number}`, info.color, [
     md(
       [
@@ -247,6 +281,7 @@ export function pullRequestReviewCard(payload: any) {
         '',
         `**Repository:** [${repo}](https://github.com/${repo})`,
         `**Reviewer:** ${review.user?.login ?? 'unknown'}`,
+        authorLine,
       ].join('\n'),
     ),
     ...(review.body ? [divider(), md(truncate(review.body, 500))] : []),
@@ -440,4 +475,84 @@ export function genericEventCard(eventName: string, payload: any) {
       button('View on GitHub', `https://github.com/${repo}`),
     ],
   );
+}
+
+// ---------------------------------------------------------------------------
+// Admin: approval prompt for unresolved member matches
+// ---------------------------------------------------------------------------
+
+/**
+ * Card posted to the admin chat when there are unresolved GitHub members
+ * that couldn't be auto-matched to a Lark user.
+ *
+ * The button leads to the GitHub-Pages approve page which fetches the current
+ * pending list from `data/user-mapping.json` and dispatches decisions.
+ */
+export function approvalPromptCard(opts: {
+  count: number;
+  org: string;
+  approveUrl: string;
+  sampleLogins: string[];
+}) {
+  const { count, org, approveUrl, sampleLogins } = opts;
+  const preview = sampleLogins.slice(0, 5).map((l) => `\`${l}\``).join(', ');
+  const more = sampleLogins.length > 5 ? ` and ${sampleLogins.length - 5} more` : '';
+
+  return card(
+    `⚠️ ${count} member${count === 1 ? '' : 's'} awaiting review`,
+    'orange',
+    [
+      md(
+        [
+          `The GitHub↔Lark sync for \`${org}\` couldn't confidently match these users by email or name:`,
+          '',
+          preview + more,
+          '',
+          `Open the approval page, sign in with GitHub, and resolve each one with a single click. Decisions are persistent — skipped users are never re-asked.`,
+        ].join('\n'),
+      ),
+      button('Resolve in browser →', approveUrl),
+    ],
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Repo lifecycle: archived / deleted / renamed notifications for the chat
+// ---------------------------------------------------------------------------
+
+export function repoArchivedCard(fullName: string, htmlUrl: string) {
+  return card('📦 Repository archived', 'grey', [
+    md(
+      [
+        `**Repository:** [${fullName}](${htmlUrl})`,
+        '',
+        'This repository has been archived on GitHub. No further events will be delivered unless it is unarchived.',
+      ].join('\n'),
+    ),
+  ]);
+}
+
+export function repoDeletedCard(fullName: string) {
+  return card('🗑️ Repository deleted', 'red', [
+    md(
+      [
+        `**Repository:** \`${fullName}\``,
+        '',
+        'This repository was deleted on GitHub. This chat will no longer receive notifications.',
+      ].join('\n'),
+    ),
+  ]);
+}
+
+export function repoRenamedCard(oldName: string, newName: string, htmlUrl: string) {
+  return card('✏️ Repository renamed', 'blue', [
+    md(
+      [
+        `**From:** \`${oldName}\``,
+        `**To:** [${newName}](${htmlUrl})`,
+        '',
+        'This chat will continue to receive notifications for the repository under its new name.',
+      ].join('\n'),
+    ),
+  ]);
 }

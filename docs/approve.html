@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Approve member matches — Lark–GitHub Sync</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d;
+    --text: #e6edf3; --muted: #8b949e; --accent: #58a6ff;
+    --green: #3fb950; --orange: #d29922; --red: #f85149;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);max-width:780px;margin:0 auto;padding:2rem 1.5rem;line-height:1.55}
+  h1{font-size:1.6rem;margin-bottom:.2rem}
+  .sub{color:var(--muted);margin-bottom:1.5rem;font-size:.92rem}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1rem}
+  .empty{color:var(--muted);text-align:center;padding:2rem 1rem}
+  .row{border-bottom:1px solid var(--border);padding:1rem 0}
+  .row:last-child{border-bottom:none}
+  .row.done{opacity:.45;pointer-events:none}
+  .gh-user{display:flex;align-items:center;gap:.7rem;margin-bottom:.7rem}
+  .gh-user img{width:36px;height:36px;border-radius:50%;border:1px solid var(--border)}
+  .gh-user .meta{flex:1}
+  .gh-user .n{font-weight:600}
+  .gh-user .sub-line{color:var(--muted);font-size:.82rem}
+  .candidates{display:flex;flex-direction:column;gap:.4rem}
+  .cand{display:flex;align-items:center;gap:.6rem;padding:.45rem .6rem;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:.88rem}
+  .cand .name{font-weight:600;flex:1}
+  .cand .email{color:var(--muted);font-size:.78rem;margin-right:.4rem}
+  .cand .score{color:var(--orange);font-size:.75rem;background:rgba(210,153,34,.1);padding:.1rem .4rem;border-radius:3px;margin-right:.4rem}
+  .actions{display:flex;gap:.4rem;margin-top:.6rem;flex-wrap:wrap}
+  button{font-family:inherit;cursor:pointer;border:none;border-radius:6px;padding:.4rem .8rem;font-size:.82rem;font-weight:600}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .btn-match{background:var(--green);color:var(--bg)}
+  .btn-skip{background:none;color:var(--muted);border:1px solid var(--border)}
+  .btn-invite{background:var(--accent);color:var(--bg)}
+  .btn-gh{background:#24292f;color:#fff;padding:.65rem 1.3rem;font-size:.95rem;display:inline-flex;align-items:center;gap:.5rem}
+  .btn-gh svg{width:18px;height:18px;fill:#fff}
+  .status{margin-top:.5rem;font-size:.82rem;color:var(--muted)}
+  .status.ok{color:var(--green)}
+  .status.err{color:var(--red)}
+  .err-banner{background:#2d1215;border:1px solid var(--red);color:var(--red);padding:.6rem .9rem;border-radius:8px;font-size:.9rem;margin-bottom:1rem}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code{background:var(--bg);border:1px solid var(--border);padding:.05rem .3rem;border-radius:3px;font-size:.84em}
+</style>
+</head>
+<body>
+
+<h1>Approve member matches</h1>
+<p class="sub">One-click approval for GitHub members whose names don't exact-match any Lark user.</p>
+
+<div id="err"></div>
+
+<!-- ─── Login state ─────────────────────────────────────────────────── -->
+<div id="login-card" class="card">
+  <p style="margin-bottom:.8rem">Sign in to verify you're an admin of the target GitHub org.</p>
+  <button class="btn-gh" onclick="ghLogin()">
+    <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+    Login with GitHub
+  </button>
+</div>
+
+<!-- ─── Pending list ────────────────────────────────────────────────── -->
+<div id="content" style="display:none">
+  <div id="user-info" class="card" style="display:flex;align-items:center;gap:.6rem">
+    <img id="u-avatar" style="width:32px;height:32px;border-radius:50%" alt="">
+    <div style="flex:1"><span id="u-name" style="font-weight:600"></span> • <span id="u-org" style="color:var(--muted)"></span></div>
+  </div>
+
+  <div class="card">
+    <div id="pending"></div>
+  </div>
+</div>
+
+<script>
+const WORKER_URL = 'https://feishu-github-sync-oauth.zilim.workers.dev';
+
+/* ─── URL params (from the card's deep-link) ──────────────────── */
+const hashParams = new URLSearchParams(location.hash.slice(1));
+const ORG = hashParams.get('org') || '';
+const SYNC_REPO = hashParams.get('repo') || 'lark-github-sync';
+
+let ghToken = null;
+let pending = {};
+let user = null;
+
+function $(id) { return document.getElementById(id); }
+
+function showErr(msg) {
+  $('err').innerHTML = `<div class="err-banner">${msg}</div>`;
+}
+
+if (!ORG) {
+  showErr('Missing <code>#org=</code> parameter. Open this page from the approval card in Lark.');
+}
+
+/* ─── OAuth ────────────────────────────────────────────────────── */
+function ghLogin() {
+  const state = crypto.randomUUID();
+  sessionStorage.setItem('oauth_state', state);
+  const w = 500, h = 700;
+  const left = screen.width / 2 - w / 2, top = screen.height / 2 - h / 2;
+  const popup = window.open(
+    `${WORKER_URL}/auth/github?state=${state}`,
+    'github-oauth',
+    `width=${w},height=${h},left=${left},top=${top}`
+  );
+  if (!popup) alert('Please allow popups for this site and try again.');
+}
+
+window.addEventListener('message', async (e) => {
+  if (e.origin !== location.origin) return;
+  if (e.data?.type !== 'github-oauth-token' || !e.data.token) return;
+  ghToken = e.data.token;
+  await init();
+});
+
+async function ghApi(method, path, body) {
+  const res = await fetch(`https://api.github.com${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${ghToken}`,
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok && res.status !== 204) {
+    const text = await res.text();
+    throw new Error(`${method} ${path} → ${res.status}: ${text}`);
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+/* ─── Initial data fetch ───────────────────────────────────────── */
+async function init() {
+  if (!ORG) return;
+  $('login-card').style.display = 'none';
+
+  try {
+    user = await ghApi('GET', '/user');
+    $('u-avatar').src = user.avatar_url;
+    $('u-name').textContent = user.name || user.login;
+    $('u-org').textContent = ORG;
+
+    // Verify admin role on the org
+    let membership;
+    try {
+      membership = await ghApi('GET', `/user/memberships/orgs/${ORG}`);
+    } catch (err) {
+      showErr(`Not a member of <code>${ORG}</code>, or your token lacks <code>admin:org</code> scope. ` +
+              `Sign out and try again from the approval card.`);
+      return;
+    }
+    if (membership.role !== 'admin') {
+      showErr(`You must be an admin of <code>${ORG}</code> to approve member matches. You are <code>${membership.role}</code>.`);
+      return;
+    }
+
+    // Fetch pending list
+    await loadPending();
+    $('content').style.display = 'block';
+  } catch (err) {
+    showErr(`Failed to load: ${err.message}`);
+  }
+}
+
+async function loadPending() {
+  try {
+    const file = await ghApi('GET', `/repos/${ORG}/${SYNC_REPO}/contents/data/user-mapping.json`);
+    const json = JSON.parse(atob(file.content.replace(/\s/g, '')));
+    pending = json.pending || {};
+  } catch (err) {
+    if (err.message.includes('404')) {
+      pending = {};
+    } else {
+      throw err;
+    }
+  }
+  renderPending();
+}
+
+/* ─── Render the approval rows ─────────────────────────────────── */
+function renderPending() {
+  const keys = Object.keys(pending);
+  const host = $('pending');
+  if (keys.length === 0) {
+    host.innerHTML = `<div class="empty">🎉 No pending approvals. All GitHub members have been matched or explicitly skipped.</div>`;
+    return;
+  }
+  host.innerHTML = keys.map((login) => rowHtml(login, pending[login])).join('');
+}
+
+function rowHtml(login, p) {
+  const candHtml = (p.candidates || []).map((c, i) => `
+    <div class="cand">
+      <span class="name">${escapeHtml(c.lark_name)}</span>
+      ${c.email ? `<span class="email">${escapeHtml(c.email)}</span>` : ''}
+      <span class="score">${Math.round(c.score * 100)}%</span>
+      <button class="btn-match" data-login="${escapeAttr(login)}" data-cand="${i}" data-action="match">Match</button>
+    </div>
+  `).join('');
+
+  const inviteAction = p.gh_email
+    ? `<button class="btn-invite" data-login="${escapeAttr(login)}" data-action="invite-email">Invite ${escapeHtml(p.gh_email)} to org</button>`
+    : '';
+
+  return `
+    <div class="row" data-row="${escapeAttr(login)}">
+      <div class="gh-user">
+        ${p.gh_avatar_url ? `<img src="${escapeAttr(p.gh_avatar_url)}" alt="">` : '<div style="width:36px;height:36px;border-radius:50%;background:var(--border)"></div>'}
+        <div class="meta">
+          <div class="n">${escapeHtml(p.gh_name || login)}</div>
+          <div class="sub-line">
+            <a href="https://github.com/${escapeAttr(login)}" target="_blank">@${escapeHtml(login)}</a>
+            ${p.gh_email ? ' · ' + escapeHtml(p.gh_email) : ''}
+          </div>
+        </div>
+      </div>
+      ${p.candidates?.length ? `<div class="candidates">${candHtml}</div>` : '<div class="sub-line" style="color:var(--muted)">No Lark candidates above threshold.</div>'}
+      <div class="actions">
+        ${inviteAction}
+        <button class="btn-skip" data-login="${escapeAttr(login)}" data-action="skip">Skip — never ask again</button>
+      </div>
+      <div class="status" data-status="${escapeAttr(login)}"></div>
+    </div>
+  `;
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function escapeAttr(s) { return escapeHtml(s).replace(/"/g, '&quot;'); }
+
+/* ─── Click handler ─────────────────────────────────────────────── */
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('button[data-action]');
+  if (!btn) return;
+  const login = btn.dataset.login;
+  const action = btn.dataset.action;
+  const p = pending[login];
+  if (!p) return;
+
+  const payload = { github_login: login, decision: action, decided_by: user.login };
+  if (action === 'match') {
+    const c = p.candidates[parseInt(btn.dataset.cand, 10)];
+    payload.lark_open_id = c.lark_open_id;
+    payload.lark_name = c.lark_name;
+    payload.email = c.email || p.gh_email;
+  } else if (action === 'invite-email') {
+    payload.email = p.gh_email;
+  }
+
+  const row = document.querySelector(`[data-row="${CSS.escape(login)}"]`);
+  const status = document.querySelector(`[data-status="${CSS.escape(login)}"]`);
+  row.querySelectorAll('button').forEach((b) => (b.disabled = true));
+  status.className = 'status';
+  status.textContent = 'Dispatching…';
+
+  try {
+    await ghApi('POST', `/repos/${ORG}/${SYNC_REPO}/dispatches`, {
+      event_type: 'approval-applied',
+      client_payload: payload,
+    });
+    status.className = 'status ok';
+    status.textContent = '✓ Applied — the sync action will complete in ~30s.';
+    row.classList.add('done');
+  } catch (err) {
+    status.className = 'status err';
+    status.textContent = '✗ Failed: ' + err.message;
+    row.querySelectorAll('button').forEach((b) => (b.disabled = false));
+  }
+});
+</script>
+
+</body>
+</html>

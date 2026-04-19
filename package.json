@@ -10,11 +10,15 @@
     "sync-repos": "tsx src/sync-repos.ts",
     "notify": "tsx src/notify.ts",
     "setup-repos": "tsx src/setup-repos.ts",
+    "apply-approval": "tsx src/apply-approval.ts",
+    "handle-repo-event": "tsx src/handle-repo-event.ts",
+    "setup-bootstrap": "tsx src/setup-bootstrap.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@larksuiteoapi/node-sdk": "^1.45.0",
-    "@octokit/rest": "^21.1.1"
+    "@octokit/rest": "^21.1.1",
+    "pinyin-pro": "^3.28.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.1",

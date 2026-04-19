@@ -172,6 +172,9 @@
   <div class="card-t">Deploy</div>
   <label for="repoName">Repository name</label>
   <input type="text" id="repoName" value="lark-github-sync">
+  <label for="adminEmail">Your Lark email (receives approval prompts)</label>
+  <input type="text" id="adminEmail" placeholder="you@company.com" autocomplete="off">
+  <p class="hint">Used to resolve your Lark open_id so approval cards can be posted to you.</p>
   <button class="btn btn-deploy" id="deployBtn" onclick="deploy()" disabled>Deploy</button>
 </div>
 
@@ -186,7 +189,7 @@
 <script>
 /* ── Config ───────────────────────────────────────────────────────────── */
 // REPLACE with your Worker URL and GitHub OAuth App client_id after deploying
-const WORKER_URL = 'https://feishu-github-sync-oauth.workers.dev';
+const WORKER_URL = 'https://feishu-github-sync-oauth.zilim.workers.dev';
 const TEMPLATE_OWNER = 'mengzili';
 const TEMPLATE_REPO  = 'lark-github-sync';
 
@@ -200,10 +203,11 @@ function cp(id, btn) {
   setTimeout(() => btn.textContent = 'Copy', 1200);
 }
 function checkReady() {
-  $('deployBtn').disabled = !(ghToken && $('appId').value.trim() && $('appSecret').value.trim());
+  $('deployBtn').disabled = !(ghToken && $('appId').value.trim() && $('appSecret').value.trim() && $('adminEmail').value.trim());
 }
 $('appId').addEventListener('input', checkReady);
 $('appSecret').addEventListener('input', checkReady);
+$('adminEmail').addEventListener('input', checkReady);
 
 /* ── GitHub OAuth ─────────────────────────────────────────────────────── */
 function ghLogin() {
@@ -232,6 +236,11 @@ window.addEventListener('message', async (e) => {
     $('gh-avatar').src = user.avatar_url;
     $('gh-name').textContent = user.name || user.login;
     $('gh-login').textContent = '@' + user.login;
+
+    // Auto-fill admin email with the user's GitHub-verified email
+    if (user.email) {
+      $('adminEmail').value = user.email;
+    }
 
     // Fetch orgs
     const orgs = await ghApi('GET', '/user/orgs');
@@ -333,14 +342,15 @@ async function encryptSecret(pubKey, value) {
 
 /* ── Deploy ───────────────────────────────────────────────────────────── */
 async function deploy() {
-  const org    = $('gh-org').value;
-  const repo   = $('repoName').value.trim();
-  const appId  = $('appId').value.trim();
-  const secret = $('appSecret').value.trim();
-  const domain = document.querySelector('input[name=domain]:checked').value;
-  const deptId = $('deptId').value.trim() || '0';
+  const org        = $('gh-org').value;
+  const repo       = $('repoName').value.trim();
+  const appId      = $('appId').value.trim();
+  const secret     = $('appSecret').value.trim();
+  const domain     = document.querySelector('input[name=domain]:checked').value;
+  const deptId     = $('deptId').value.trim() || '0';
+  const adminEmail = $('adminEmail').value.trim();
 
-  if (!ghToken || !org || !repo || !appId || !secret) return;
+  if (!ghToken || !org || !repo || !appId || !secret || !adminEmail) return;
 
   const btn = $('deployBtn');
   btn.disabled = true; btn.textContent = 'Deploying...';
@@ -399,7 +409,12 @@ async function deploy() {
     try {
       await ghApi('POST', `/repos/${full}/actions/workflows/initial-setup.yml/dispatches`, {
         ref: 'main',
-        inputs: { github_org: org, lark_domain: domain, lark_department_id: deptId },
+        inputs: {
+          github_org: org,
+          lark_domain: domain,
+          lark_department_id: deptId,
+          admin_email: adminEmail,
+        },
       });
       logSet(L, 'Sync triggered', 'ok');
     } catch {

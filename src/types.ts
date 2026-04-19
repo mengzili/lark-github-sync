@@ -4,7 +4,49 @@ export interface RepoChatMapping {
     chat_id: string;
     chat_name: string;
     created_at: string;
+    /** Immutable numeric repo id — survives renames */
+    repo_id?: number;
+    /** Prior full_names this repo has been renamed from */
+    renames?: string[];
+    /** Set when the repo has been archived on GitHub */
+    archived?: boolean;
   };
+}
+
+/** One resolved GitHub↔Lark identity link */
+export interface UserMappingEntry {
+  status: 'matched' | 'skipped';
+  lark_open_id?: string;
+  lark_name?: string;
+  email?: string;
+  decided_at: string;
+  /** GitHub login of the admin who approved, or "auto" for auto-matches */
+  decided_by?: string;
+}
+
+/** A fuzzy-match candidate offered to the admin */
+export interface MatchCandidate {
+  lark_open_id: string;
+  lark_name: string;
+  email?: string;
+  /** 0..1 confidence from name-match.ts */
+  score: number;
+}
+
+/** An unresolved GitHub member awaiting admin decision */
+export interface PendingApproval {
+  gh_login: string;
+  gh_name?: string;
+  gh_email?: string;
+  gh_avatar_url?: string;
+  candidates: MatchCandidate[];
+  posted_at: string;
+}
+
+/** Persistent GitHub↔Lark identity mapping (data/user-mapping.json) */
+export interface UserMapping {
+  entries: Record<string, UserMappingEntry>;
+  pending: Record<string, PendingApproval>;
 }
 
 /** A Lark department member with identity info */
