@@ -22,9 +22,11 @@ import {
   findMappingEntry,
   pushNotifyWorkflow,
   renameRepoChat,
+  repoMemberOpenIds,
   sendRepoArchivedNotice,
   sendRepoDeletedNotice,
 } from './repos.js';
+import { loadUserMapping } from './user-mapping.js';
 import type { GitHubRepo, RepoChatMapping } from './types.js';
 
 const DATA_DIR = path.resolve(import.meta.dirname, '..', 'data');
@@ -85,12 +87,16 @@ async function main() {
       };
       const existingChats = await listBotChats();
       const adminOpenId = process.env.LARK_ADMIN_OPEN_ID || '';
+      const userMapping = loadUserMapping();
+      const contributors = await repoMemberOpenIds(octokit, config.githubOrg, repoName, userMapping);
+      const memberOpenIds = [...(adminOpenId ? [adminOpenId] : []), ...contributors];
+
       const r = await ensureRepoChat(octokit, repo, mapping, existingChats, {
         owner: config.githubOrg,
         dryRun: config.dryRun,
-        adminOpenIds: adminOpenId ? [adminOpenId] : [],
+        memberOpenIds,
       });
-      console.log(`  ${r.created ? '+ created' : '~ reused'} chat ${r.chat_id}`);
+      console.log(`  ${r.created ? '+ created' : '~ reused'} chat ${r.chat_id} (${memberOpenIds.length} initial members)`);
 
       // Push the notify workflow so events start flowing immediately
       try {
@@ -129,10 +135,14 @@ async function main() {
         };
         const existingChats = await listBotChats();
         const adminOpenId = process.env.LARK_ADMIN_OPEN_ID || '';
+        const userMapping = loadUserMapping();
+        const contributors = await repoMemberOpenIds(octokit, config.githubOrg, repoName, userMapping);
+        const memberOpenIds = [...(adminOpenId ? [adminOpenId] : []), ...contributors];
+
         await ensureRepoChat(octokit, repo, mapping, existingChats, {
           owner: config.githubOrg,
           dryRun: config.dryRun,
-          adminOpenIds: adminOpenId ? [adminOpenId] : [],
+          memberOpenIds,
         });
       } else {
         // Migrate mapping key + rename the Lark chat

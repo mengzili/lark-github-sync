@@ -10,13 +10,64 @@ import {
   getLarkClient,
   addMembersToChat,
 } from './lark.js';
-import type { GitHubRepo, RepoChatMapping } from './types.js';
+import type { GitHubRepo, RepoChatMapping, UserMapping } from './types.js';
 import { repoArchivedCard, repoDeletedCard, repoRenamedCard } from './cards.js';
+import { larkIdForGithub } from './user-mapping.js';
 
 export const NOTIFY_WORKFLOW_PATH = '.github/workflows/lark-notify.yml';
 
 export function chatNameForRepo(fullName: string): string {
   return `GitHub: ${fullName}`;
+}
+
+/**
+ * Resolve Lark open_ids for every GitHub contributor to `owner/repo` whose
+ * identity we've matched in the user mapping. PR authors (even on unmerged
+ * branches) are included alongside commit contributors to the default branch.
+ *
+ * Unmatched contributors are silently skipped — they'll only land in the chat
+ * after they're resolved via the approval flow.
+ */
+export async function repoMemberOpenIds(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  mapping: UserMapping,
+): Promise<string[]> {
+  const logins = new Set<string>();
+
+  // Commit contributors on the default branch (also covers merged branches)
+  try {
+    for await (const response of octokit.paginate.iterator(octokit.repos.listContributors, {
+      owner, repo, per_page: 100,
+    })) {
+      for (const c of response.data) {
+        if (c.login && c.type === 'User') logins.add(c.login);
+      }
+    }
+  } catch {
+    // Empty repo or no contributors — fine
+  }
+
+  // PR authors — captures people on unmerged branches too
+  try {
+    for await (const response of octokit.paginate.iterator(octokit.pulls.list, {
+      owner, repo, state: 'all', per_page: 100,
+    })) {
+      for (const pr of response.data) {
+        if (pr.user?.login && pr.user.type === 'User') logins.add(pr.user.login);
+      }
+    }
+  } catch {
+    // Ignore — rate limits or permissions
+  }
+
+  const openIds = new Set<string>();
+  for (const login of logins) {
+    const id = larkIdForGithub(mapping, login);
+    if (id) openIds.add(id);
+  }
+  return [...openIds];
 }
 
 function welcomeCard(repo: GitHubRepo) {
@@ -92,20 +143,21 @@ export interface EnsureRepoChatResult {
  * everything is already in place. Also handles the case where the mapping has
  * the repo under an older name (rename).
  *
- * If `adminOpenIds` is provided, the admin user(s) are added to the chat
- * (idempotently — Lark silently ignores already-members). Without this the
- * bot creates the chat with just itself as a member and humans can't see it.
+ * If `memberOpenIds` is provided, those users are added to the chat
+ * (idempotently — Lark silently ignores already-members). Typically this is
+ * the admin plus all resolvable contributors to the repo so humans can find
+ * the notifications.
  */
 export async function ensureRepoChat(
   octokit: Octokit,
   repo: GitHubRepo & { id?: number },
   mapping: RepoChatMapping,
   existingChats: Map<string, string>,
-  opts: { owner: string; dryRun: boolean; adminOpenIds?: string[] },
+  opts: { owner: string; dryRun: boolean; memberOpenIds?: string[] },
 ): Promise<EnsureRepoChatResult> {
   const existing = findMappingEntry(mapping, repo);
   const chatName = chatNameForRepo(repo.full_name);
-  const adminOpenIds = (opts.adminOpenIds ?? []).filter(Boolean);
+  const memberOpenIds = (opts.memberOpenIds ?? []).filter(Boolean);
 
   // Path 1: mapping already has an entry — rename-safe via repo_id.
   if (existing) {
@@ -123,9 +175,9 @@ export async function ensureRepoChat(
       mapping[repo.full_name].repo_id = repo.id;
     }
     // Ensure admin is in the chat
-    if (adminOpenIds.length && !opts.dryRun) {
+    if (memberOpenIds.length && !opts.dryRun) {
       try {
-        await addMembersToChat(mapping[repo.full_name].chat_id, adminOpenIds);
+        await addMembersToChat(mapping[repo.full_name].chat_id, memberOpenIds);
       } catch (err) {
         console.warn(`  ⚠ could not add admin(s) to ${repo.full_name} chat: ${err}`);
       }
@@ -147,9 +199,9 @@ export async function ensureRepoChat(
       repo_id: repo.id,
       renames: [],
     };
-    if (adminOpenIds.length && !opts.dryRun) {
+    if (memberOpenIds.length && !opts.dryRun) {
       try {
-        await addMembersToChat(recoveredChatId, adminOpenIds);
+        await addMembersToChat(recoveredChatId, memberOpenIds);
       } catch (err) {
         console.warn(`  ⚠ could not add admin(s) to ${repo.full_name} chat: ${err}`);
       }
@@ -163,7 +215,7 @@ export async function ensureRepoChat(
   }
 
   const description = `GitHub notifications for ${repo.full_name}${repo.description ? ` — ${repo.description}` : ''}`;
-  const chatId = await createGroupChat(chatName, description, adminOpenIds.length ? adminOpenIds : undefined);
+  const chatId = await createGroupChat(chatName, description, memberOpenIds.length ? memberOpenIds : undefined);
 
   mapping[repo.full_name] = {
     chat_id: chatId,

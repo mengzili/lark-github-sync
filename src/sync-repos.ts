@@ -16,7 +16,8 @@ import {
   listBotChats,
   formatLarkError,
 } from './lark.js';
-import { ensureRepoChat } from './repos.js';
+import { ensureRepoChat, repoMemberOpenIds } from './repos.js';
+import { loadUserMapping } from './user-mapping.js';
 import type { GitHubRepo, RepoChatMapping, RepoSyncResult } from './types.js';
 
 const DATA_DIR = path.resolve(import.meta.dirname, '..', 'data');
@@ -77,13 +78,26 @@ async function main() {
   console.log('4. Processing repos...');
   const result: RepoSyncResult = { created: [], existing: [], errors: [] };
   const adminOpenId = process.env.LARK_ADMIN_OPEN_ID || '';
+  const userMapping = loadUserMapping();
 
   for (const repo of repos) {
     try {
+      // Per-repo membership: admin + all matched contributors (any branch)
+      const contributors = await repoMemberOpenIds(
+        octokit,
+        config.githubOrg,
+        repo.name,
+        userMapping,
+      );
+      const memberOpenIds = [
+        ...(adminOpenId ? [adminOpenId] : []),
+        ...contributors,
+      ];
+
       const r = await ensureRepoChat(octokit, repo, mapping, existingChats, {
         owner: config.githubOrg,
         dryRun: config.dryRun,
-        adminOpenIds: adminOpenId ? [adminOpenId] : [],
+        memberOpenIds,
       });
       if (r.created) {
         result.created.push(repo.full_name);
