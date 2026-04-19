@@ -34,7 +34,7 @@ async function main() {
 
   console.log(`Found ${repos.length} repos (excluding sync repo)\n`);
 
-  let created = 0, updated = 0, skipped = 0, errors = 0;
+  let created = 0, updated = 0, skipped = 0, protected_ = 0, errors = 0;
 
   for (const repo of repos) {
     try {
@@ -49,17 +49,26 @@ async function main() {
       if (status === 'created') { created++; console.log(`  + ${repo.full_name} — created`); }
       else if (status === 'updated') { updated++; console.log(`  ✓ ${repo.full_name} — updated`); }
       else { skipped++; console.log(`  ~ ${repo.full_name} — already up to date`); }
-    } catch (err) {
-      console.error(`  ✗ ${repo.full_name} — failed: ${err}`);
-      errors++;
+    } catch (err: any) {
+      const msg = err?.message ?? String(err);
+      // Branch protection / ruleset blocks direct push — skip, don't fail the job.
+      // Admin can enable the workflow manually or loosen the rule.
+      if (/Repository rule violations|protected branch|required status check/i.test(msg)) {
+        protected_++;
+        console.warn(`  ⚠ ${repo.full_name} — protected branch; skip (open a PR to enable notifications here)`);
+      } else {
+        console.error(`  ✗ ${repo.full_name} — failed: ${msg}`);
+        errors++;
+      }
     }
   }
 
   console.log('\n=== Summary ===');
-  console.log(`Created: ${created}`);
-  console.log(`Updated: ${updated}`);
-  console.log(`Skipped: ${skipped} (already up to date)`);
-  console.log(`Errors:  ${errors}`);
+  console.log(`Created:   ${created}`);
+  console.log(`Updated:   ${updated}`);
+  console.log(`Skipped:   ${skipped} (already up to date)`);
+  console.log(`Protected: ${protected_} (skipped — open a PR on those repos)`);
+  console.log(`Errors:    ${errors}`);
 
   if (errors > 0) process.exit(1);
 }
