@@ -1,0 +1,44 @@
+# Handle a member-joined event dispatched from the centralized Worker when
+# a user accepts the GitHub org invitation. Adds them to the Lark chats of
+# every repo they've contributed to (if they're a matched Lark user).
+name: "Member Event"
+
+on:
+  repository_dispatch:
+    types: [member-joined]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: user-mapping-write
+  cancel-in-progress: false
+
+env:
+  LARK_APP_ID: ${{ secrets.LARK_APP_ID }}
+  LARK_APP_SECRET: ${{ secrets.LARK_APP_SECRET }}
+  LARK_DOMAIN: ${{ vars.LARK_DOMAIN || 'feishu' }}
+  LARK_SOURCE_DEPARTMENT_ID: ${{ vars.LARK_SOURCE_DEPARTMENT_ID || '0' }}
+  GITHUB_TOKEN: ${{ secrets.SYNC_GITHUB_TOKEN }}
+  GITHUB_ORG: ${{ vars.SYNC_GITHUB_ORG }}
+
+jobs:
+  handle:
+    name: "member_added: @${{ github.event.client_payload.login }}"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - name: Add new member to their contributor chats
+        run: npx tsx src/handle-member-event.ts
+      - name: Commit mapping update (if any)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/user-mapping.json
+          git diff --staged --quiet || git commit -m "chore: member-joined ${{ github.event.client_payload.login }} [skip ci]"
+          git push

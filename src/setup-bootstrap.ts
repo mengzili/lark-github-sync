@@ -113,11 +113,17 @@ async function main() {
   const hooks = await octokit.orgs.listWebhooks({ org });
   const existing = hooks.data.find((h) => h.config?.url === webhookUrl);
 
+  // Events we care about:
+  //   repository   — created/deleted/renamed/archived (real-time chat setup)
+  //   organization — member_added/member_removed (real-time chat membership)
+  //   membership   — team add/remove (future use)
+  const webhookEvents = ['repository', 'organization', 'membership'];
+
   if (existing) {
     await octokit.orgs.updateWebhook({
       org,
       hook_id: existing.id,
-      events: ['repository'],
+      events: webhookEvents,
       active: true,
       config: {
         url: webhookUrl,
@@ -131,7 +137,7 @@ async function main() {
     const created = await octokit.orgs.createWebhook({
       org,
       name: 'web',
-      events: ['repository'],
+      events: webhookEvents,
       active: true,
       config: {
         url: webhookUrl,

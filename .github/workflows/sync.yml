@@ -69,7 +69,10 @@ jobs:
   sync-repos:
     name: Sync Repos
     runs-on: ubuntu-latest
-    if: ${{ !inputs.skip_repos }}
+    # Run after members so newly-matched users land in their repo chats on
+    # the same day, not 24h later.
+    needs: sync-members
+    if: ${{ !inputs.skip_repos && (success() || needs.sync-members.result == 'skipped') }}
     steps:
       - uses: actions/checkout@v4
 

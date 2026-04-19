@@ -265,34 +265,55 @@ async function githubWebhook(req: Request, org: string, env: Env): Promise<Respo
   if (event === 'ping') {
     return json({ pong: true }, 200, env);
   }
-  if (event !== 'repository') {
-    return json({ skipped: `event ${event} not forwarded` }, 200, env);
-  }
 
   const payload = JSON.parse(rawBody);
   const action: string = payload.action ?? '';
-  if (!FORWARDED_REPO_ACTIONS.has(action)) {
-    return json({ skipped: `action ${action} not forwarded` }, 200, env);
+
+  if (event === 'repository') {
+    if (!FORWARDED_REPO_ACTIONS.has(action)) {
+      return json({ skipped: `action ${action} not forwarded` }, 200, env);
+    }
+    const repo = payload.repository ?? {};
+    const clientPayload = {
+      action,
+      full_name: repo.full_name,
+      id: repo.id,
+      html_url: repo.html_url,
+      default_branch: repo.default_branch,
+      private: repo.private,
+      description: repo.description,
+      old_name: action === 'renamed' ? payload.changes?.repository?.name?.from : undefined,
+    };
+    await dispatchRepoEvent({
+      syncRepo: tenant.syncRepo,
+      pat: tenant.dispatchPat,
+      eventType: 'repo-changed',
+      clientPayload,
+    });
+    return json({ ok: true, action, repo: repo.full_name }, 200, env);
   }
 
-  const repo = payload.repository ?? {};
-  const clientPayload = {
-    action,
-    full_name: repo.full_name,
-    id: repo.id,
-    html_url: repo.html_url,
-    default_branch: repo.default_branch,
-    private: repo.private,
-    description: repo.description,
-    old_name: action === 'renamed' ? payload.changes?.repository?.name?.from : undefined,
-  };
+  if (event === 'organization') {
+    // Fire when someone accepts the org invitation
+    if (action !== 'member_added') {
+      return json({ skipped: `action ${action} not forwarded` }, 200, env);
+    }
+    const member = payload.membership?.user ?? {};
+    const clientPayload = {
+      action,
+      login: member.login,
+      id: member.id,
+      avatar_url: member.avatar_url,
+      html_url: member.html_url,
+    };
+    await dispatchRepoEvent({
+      syncRepo: tenant.syncRepo,
+      pat: tenant.dispatchPat,
+      eventType: 'member-joined',
+      clientPayload,
+    });
+    return json({ ok: true, action, login: member.login }, 200, env);
+  }
 
-  await dispatchRepoEvent({
-    syncRepo: tenant.syncRepo,
-    pat: tenant.dispatchPat,
-    eventType: 'repo-changed',
-    clientPayload,
-  });
-
-  return json({ ok: true, action, repo: repo.full_name }, 200, env);
+  return json({ skipped: `event ${event} not forwarded` }, 200, env);
 }
