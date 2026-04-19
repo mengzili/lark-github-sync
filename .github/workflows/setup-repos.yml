@@ -15,7 +15,7 @@ permissions:
 
 env:
   GITHUB_TOKEN: ${{ secrets.SYNC_GITHUB_TOKEN }}
-  GITHUB_ORG: ${{ vars.GITHUB_ORG }}
+  GITHUB_ORG: ${{ vars.SYNC_GITHUB_ORG }}
   DRY_RUN: ${{ inputs.dry_run || 'false' }}
   # Lark vars needed by config loader but not used in this script
   LARK_APP_ID: ${{ secrets.LARK_APP_ID }}

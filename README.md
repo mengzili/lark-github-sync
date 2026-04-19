@@ -113,7 +113,7 @@ You also need a [GitHub OAuth App](https://github.com/settings/developers) with 
 | `LARK_APP_ID` | Secret — Lark app ID | *(required)* |
 | `LARK_APP_SECRET` | Secret — Lark app secret | *(required)* |
 | `SYNC_GITHUB_TOKEN` | Secret — GitHub OAuth token | *(set by deploy)* |
-| `GITHUB_ORG` | Variable — org name | *(set by deploy)* |
+| `SYNC_GITHUB_ORG` | Variable — org name | *(set by deploy)* |
 | `LARK_DOMAIN` | Variable — `feishu` or `lark` | `feishu` |
 | `LARK_SOURCE_DEPARTMENT_ID` | Variable — Lark dept to sync | `0` (all) |
 | `LARK_ADMIN_CHAT_ID` | Variable — chat that receives approval prompts | *(set by deploy)* |

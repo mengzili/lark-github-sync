@@ -21,7 +21,7 @@ env:
   LARK_DOMAIN: ${{ vars.LARK_DOMAIN || 'feishu' }}
   LARK_SOURCE_DEPARTMENT_ID: ${{ vars.LARK_SOURCE_DEPARTMENT_ID || '0' }}
   GITHUB_TOKEN: ${{ secrets.SYNC_GITHUB_TOKEN }}
-  GITHUB_ORG: ${{ vars.GITHUB_ORG }}
+  GITHUB_ORG: ${{ vars.SYNC_GITHUB_ORG }}
 
 jobs:
   handle:

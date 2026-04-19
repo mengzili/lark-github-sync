@@ -403,7 +403,7 @@ async function deploy() {
 
     // 4. Set variables
     L = logAdd('Setting variables...', 'spin');
-    const vars = { GITHUB_ORG: org, LARK_DOMAIN: domain, LARK_SOURCE_DEPARTMENT_ID: deptId };
+    const vars = { SYNC_GITHUB_ORG: org, LARK_DOMAIN: domain, LARK_SOURCE_DEPARTMENT_ID: deptId };
     for (const [name, value] of Object.entries(vars)) {
       try { await ghApi('POST', `/repos/${full}/actions/variables`, { name, value }); }
       catch { await ghApi('PATCH', `/repos/${full}/actions/variables/${name}`, { value }); }

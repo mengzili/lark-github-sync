@@ -270,8 +270,8 @@ async function stepConfigure(opts: {
   }
 
   console.log(`\n  Setting variables on ${scopeLabel}...`);
-  ghSetVariable('GITHUB_ORG', org, scope);
-  console.log(`    GITHUB_ORG = ${org}`);
+  ghSetVariable('SYNC_GITHUB_ORG', org, scope);
+  console.log(`    SYNC_GITHUB_ORG = ${org}`);
   ghSetVariable('LARK_DOMAIN', domainStr, scope);
   console.log(`    LARK_DOMAIN = ${domainStr}`);
   ghSetVariable('LARK_SOURCE_DEPARTMENT_ID', departmentId, scope);

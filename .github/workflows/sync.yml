@@ -34,7 +34,7 @@ env:
   LARK_SOURCE_DEPARTMENT_ID: ${{ vars.LARK_SOURCE_DEPARTMENT_ID || '0' }}
   LARK_ADMIN_CHAT_ID: ${{ vars.LARK_ADMIN_CHAT_ID }}
   GITHUB_TOKEN: ${{ secrets.SYNC_GITHUB_TOKEN }}
-  GITHUB_ORG: ${{ vars.GITHUB_ORG }}
+  GITHUB_ORG: ${{ vars.SYNC_GITHUB_ORG }}
   DRY_RUN: ${{ inputs.dry_run || 'false' }}
   SYNC_REMOVE_MEMBERS: ${{ vars.SYNC_REMOVE_MEMBERS || 'true' }}
 
