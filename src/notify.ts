@@ -14,7 +14,7 @@
 
 import fs from 'node:fs';
 import * as lark from '@larksuiteoapi/node-sdk';
-import { initLarkClient, listBotChats, sendCardMessage, formatLarkError } from './lark.js';
+import { initLarkClient, listBotChats, sendCardMessage, addMembersToChat, formatLarkError } from './lark.js';
 import {
   pushCard,
   issueCard,
@@ -29,7 +29,7 @@ import {
   workflowRunCard,
   genericEventCard,
 } from './cards.js';
-import { loadUserMapping } from './user-mapping.js';
+import { loadUserMapping, larkIdForGithub } from './user-mapping.js';
 import type { UserMapping } from './types.js';
 
 function requiredEnv(name: string): string {
@@ -124,6 +124,33 @@ async function main() {
   // Send
   await sendCardMessage(chatId, card);
   console.log('Notification sent successfully.');
+
+  // Ensure everyone relevant to this event is in the chat. Lark's addMembers
+  // is idempotent — members already in silently no-op. This is how new org
+  // joiners get auto-added: their first contribution fires an event, notify
+  // runs, and they land in the chat.
+  const logins = new Set<string>();
+  if (payload.sender?.login) logins.add(payload.sender.login);
+  if (payload.pusher?.name) logins.add(payload.pusher.name);
+  if (payload.pull_request?.user?.login) logins.add(payload.pull_request.user.login);
+  if (payload.issue?.user?.login) logins.add(payload.issue.user.login);
+  for (const r of payload.pull_request?.requested_reviewers ?? []) {
+    if (r.login) logins.add(r.login);
+  }
+  const openIds: string[] = [];
+  for (const login of logins) {
+    const id = larkIdForGithub(mapping, login);
+    if (id) openIds.push(id);
+  }
+  if (openIds.length > 0) {
+    try {
+      await addMembersToChat(chatId, openIds);
+      console.log(`Ensured ${openIds.length} matched user(s) in chat.`);
+    } catch (err) {
+      // Best effort — don't fail the notify job if add-members has a hiccup
+      console.warn(`Could not add members to chat: ${err}`);
+    }
+  }
 }
 
 main().catch((err) => {
