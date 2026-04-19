@@ -43,12 +43,29 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
-          git merge upstream/main --no-edit --allow-unrelated-histories || true
 
-          # If there are conflicts, commit them as-is so the PR shows what needs resolving
+          # Save runtime data files before the merge — they're specific to this
+          # fork (Lark chat mappings, approval state) and should NEVER be
+          # overwritten by upstream's seed versions.
+          mkdir -p /tmp/lgs-data-backup
+          cp -r data/. /tmp/lgs-data-backup/ 2>/dev/null || true
+
+          # Prefer upstream on conflicts. For a template-generated repo this
+          # is nearly always "add/add" conflicts where upstream's version is
+          # what the user actually wants.
+          git merge upstream/main --no-edit --allow-unrelated-histories -X theirs || true
+
+          # Restore the fork's data/ files regardless of what merge did.
+          cp -r /tmp/lgs-data-backup/. data/ 2>/dev/null || true
+          git add data/
+
+          # If there are still unresolved conflicts, commit as-is so the PR
+          # surfaces them. Otherwise the merge's own commit is what we push.
           if [ -n "$(git ls-files -u)" ]; then
             git add -A
-            git commit -m "chore: merge upstream (has conflicts to resolve manually)"
+            git commit -m "chore: merge upstream (some conflicts remain — resolve manually)"
+          elif ! git diff --quiet HEAD; then
+            git commit -m "chore: restore runtime data after upstream sync"
           fi
 
           git push origin "$BRANCH"
