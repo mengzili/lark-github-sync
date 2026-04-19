@@ -1,274 +1,309 @@
-# Lark / Feishu ↔ GitHub Organization Sync
+<h1 align="center">Lark ↔ GitHub Organization Sync</h1>
 
-Keep your GitHub organization and Lark (Feishu) workspace in sync. Members, repos, and event notifications — all managed through GitHub Actions and a tiny Cloudflare Worker. No servers to run.
+<p align="center">
+  Keep your <b>Lark / Feishu</b> workspace and your <b>GitHub organization</b> in sync —<br/>
+  members, repos, and rich event notifications, all without running a server.
+</p>
 
-| Feature | What it does |
+<p align="center">
+  <a href="https://github.com/mengzili/lark-github-sync/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/mengzili/lark-github-sync?style=flat-square"></a>
+  <a href="https://github.com/mengzili/lark-github-sync/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/mengzili/lark-github-sync?style=flat-square"></a>
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.8-3178c6?style=flat-square&logo=typescript&logoColor=white">
+  <img alt="GitHub Actions" src="https://img.shields.io/badge/GitHub_Actions-ready-2088ff?style=flat-square&logo=github-actions&logoColor=white">
+  <img alt="Cloudflare Workers" src="https://img.shields.io/badge/Cloudflare_Workers-deployed-f38020?style=flat-square&logo=cloudflare&logoColor=white">
+</p>
+
+<p align="center">
+  <b><a href="https://zilimeng.com/lark-github-sync/">🚀 Open the setup page →</a></b>
+</p>
+
+---
+
+## Why
+
+If your team uses Lark/Feishu for chat and GitHub for code, you're stuck duplicating work across both. New hire joins Lark → someone has to invite them to GitHub. New repo created → someone should set up a chat. PR opened → reviewers get pinged in GitHub but not in Lark.
+
+This repo is a **zero-ops bridge**:
+
+- **One setup page**, ~5 minutes, done.
+- **Daily cron** for member sync; **org webhooks** for everything real-time.
+- **Fuzzy identity matching** that actually works for Chinese names (pinyin-aware, tolerant of surname-first vs. surname-last).
+- **Invite-only** — never removes anyone. A missed match costs nothing; a false positive kicks a real contributor.
+
+## What it does
+
+| | |
 |---|---|
-| **Member sync** | Lark department → GitHub org. New Lark users are invited to GitHub automatically. (Members are never removed — see below.) |
-| **Fuzzy name matching** | Lark ↔ GitHub identity links even when emails differ — pinyin-aware for CJK names. Confident matches auto-link; ambiguous ones ask for one-click approval. |
-| **Repo group chats** | Every GitHub repo gets its own Lark group chat. Admin + matched contributors are auto-added. |
-| **Event notifications** | Push / PR / issue / review / release / CI → rich interactive cards in the repo's Lark chat. |
-| **Real-time** | New repos, renames, archives, and deletes get their Lark chat + notification workflow within seconds via a GitHub org webhook. |
-| **@-mentions** | PR reviewers get a real Lark ping when a review is requested. |
-| **Never removes** | We only invite and add — never remove. The cost of a false positive (kicking out a legit contributor) is too high. |
+| 👥 **Member sync** | Lark department → GitHub org. New hires auto-invited by email. |
+| 🔤 **Fuzzy name matching** | Pinyin-aware. `Zili Meng` ↔ `孟子立` matches at 100%. Auto-links high-confidence, asks for one-click approval on ambiguous. |
+| 💬 **Repo group chats** | Every repo gets its own Lark chat. Admin + matched contributors added automatically. |
+| 🔔 **Rich notifications** | Push / PR / issue / review / release / CI → interactive cards in the repo's chat. |
+| ⚡ **Real-time** | New repos, renames, archives, deletions, and member joins land in Lark within ~30 seconds. |
+| 📣 **@-mentions** | PR reviewers get a real Lark ping (`<at user_id="ou_…">`). |
+| 🛡 **Never removes** | Only invites and adds. Admins remove manually if needed. |
 
-## Quick start (5 min)
+---
 
-> **Prerequisites**: you're a GitHub org admin, a Lark workspace admin, and you can create a custom Lark app.
+## Quick start
 
-### 1. Create a Lark app
+You need to be a **GitHub org admin** and a **Lark workspace admin** who can create a custom Lark app.
 
-Open the Lark developer console and create a custom app:
+<table>
+<tr>
+<td width="60"><b>1</b></td>
+<td>
 
-- **Feishu** (China): https://open.feishu.cn/app
-- **Lark** (International): https://open.larksuite.com/app
+**Create a Lark app** (~3 min) in the [Feishu console](https://open.feishu.cn/app) or [Lark console](https://open.larksuite.com/app). Activate these scopes and submit a version for approval:
 
-Then in **Permissions & Scopes**, activate:
+```
+contact:user.base:readonly      contact:user.id:readonly
+contact:department.base:readonly contact:contact.base:readonly
+im:chat                          im:message:send_as_bot
+```
 
-| Scope | Why |
-|---|---|
-| `contact:user.base:readonly` | Read user names and emails |
-| `contact:user.id:readonly` | Resolve user open_id by email |
-| `contact:department.base:readonly` | List departments for picker |
-| `contact:contact.base:readonly` | List department members |
-| `im:chat` | Create/list/update group chats |
-| `im:message:send_as_bot` | Send notification cards |
+</td>
+</tr>
+<tr>
+<td><b>2</b></td>
+<td>
 
-In **Version Management**, create a version with availability set to **All employees** and submit for approval. Approve it in the Lark Admin Console.
+**Open the setup page** → <https://zilimeng.com/lark-github-sync/>
 
-Copy **App ID** and **App Secret** — you'll paste them on the setup page.
+Login with GitHub, pick your org, paste your Lark App ID + Secret, confirm your Lark email, click **Deploy**.
 
-### 2. Open the setup page
+</td>
+</tr>
+<tr>
+<td><b>3</b></td>
+<td>
 
-> **https://zilimeng.com/lark-github-sync/**
+**That's it.** The page creates `your-org/lark-github-sync` from the template, sets all org secrets/variables, registers the GitHub webhook, creates your Admin chat in Lark, and runs the first sync.
 
-1. **Login with GitHub** — OAuth popup, authorize the `Lark-GitHub Sync` app
-2. Pick your **GitHub organization** from the dropdown
-3. Paste **Lark App ID + Secret**, click **Verify credentials** (turns green)
-4. Choose a **Department ID** to sync (or leave `0` for the whole company)
-5. Confirm your **Lark email** (auto-filled from GitHub; this seeds the admin chat)
-6. Click **Deploy**
-
-The page will:
-
-- Create `your-org/lark-github-sync` from the template
-- Set the repo secrets and org variables
-- Register a GitHub org webhook pointing at the shared Worker
-- Create a `Lark-GitHub Sync Admin` chat with just you in it
-- Kick off the first full sync: Lark dept → GitHub, GitHub repos → Lark chats, notification workflows pushed to every repo
-
-Total time: ~3 minutes end-to-end.
-
-### 3. That's it
-
-Everything runs on GitHub Actions from now on. The daily cron (02:00 UTC) keeps member sync fresh. The org webhook handles new repos, renames, archives, and deletes in real time. Per-repo `lark-notify.yml` workflows handle events.
+</td>
+</tr>
+</table>
 
 ---
 
 ## How it works
 
 ```
-┌──────────────────────┐             ┌───────────────────────┐
-│   Lark / Feishu      │             │   GitHub Org          │
-│                      │             │                       │
-│   Department ────────┼── sync ─────┼─▶ Org members (invite)│
-│   + new hire ────────┼── auto ─────┼─▶ auto-invited        │
-│                      │             │                       │
-│   Group Chats ◀──────┼── real-time ┼── Repos (webhook)     │
-│   Card Messages ◀────┼── notify ───┼── Push / PR / …       │
-│   Admin chat ◀───────┼── approve ──┼── Fuzzy-match prompts │
-└──────────────────────┘             └───────────────────────┘
-                    ▲
-                    │ Cloudflare Worker (OAuth, webhook forwarder,
-                    │ tenant registry — shared across orgs, or self-hosted)
-                    ▼
-                 KV store
+ ┌──────────────────────┐                ┌──────────────────────┐
+ │  Lark / Feishu       │                │  GitHub Organization │
+ │                      │                │                      │
+ │  Department  ────────┼── sync ────────┼─▶  Org members        │
+ │    • new hire ───────┼── auto invite ─┼─▶  direct_member      │
+ │                      │                │                      │
+ │  Repo group chat ◀───┼── real-time ───┼──  New repo (webhook) │
+ │  Card messages ◀─────┼── notify ──────┼──  Push / PR / review │
+ │  Admin chat ◀────────┼── approve ─────┼──  Fuzzy-match prompt │
+ └──────────────────────┘                └──────────────────────┘
+                              ▲
+                              │  Cloudflare Worker
+                              │  (OAuth proxy · webhook forwarder · tenant KV)
+                              ▼
+                            KV: { gh:<org> → { syncRepo, secret, PAT, … } }
 ```
 
-**Real-time path** (new repos, renames, deletes): GitHub org webhook → Worker → `repository_dispatch` → handler workflow. Latency <30s.
+**Daily (cron, 02:00 UTC)** — `sync-members` → `sync-repos` → everyone ends up in the right chats.
+**Real-time (org webhook)** — new repo, rename, archive, delete, member-joined → `repository_dispatch` → handler workflow → done in <30s.
+**Per event** — each repo's `lark-notify.yml` checks out this repo and runs `notify.ts` to send the card.
 
-**Scheduled path** (member sync): GitHub Actions cron daily at 02:00 UTC. Can be triggered manually any time.
+### Identity matching
 
-**Event path** (push / PR / issue): each org repo has a `lark-notify.yml` workflow that checks out the sync repo and runs `notify.ts`. Events land in the repo's Lark chat.
+Resolved in this order:
 
-## Member matching (when emails differ)
+1. **Exact email** — Lark profile/enterprise email vs. GitHub profile email.
+2. **Commit-author probe** — for GitHub users with empty profile email, scan their recent commits and strip `@users.noreply.github.com`.
+3. **Fuzzy name** — token-set + Levenshtein + pinyin. Auto-links ≥ 0.95 confidence when the top candidate is unambiguous.
+4. **Admin approval** — 0.70–0.95 candidates land on a web page. Sign in, click **Match** or **Skip**, decision commits to `data/user-mapping.json` and is never re-asked.
 
-Identity is resolved in order:
+### Event cards
 
-1. **Exact email** — Lark profile/enterprise email vs GitHub profile email
-2. **Commit-author email probe** — recovers GitHub users whose profile email is empty by scanning their recent commits (excluding `@users.noreply.github.com`)
-3. **Fuzzy name match** — pinyin-aware, tolerant of CJK surname-first vs Western surname-last. Reversed-token forms too, so `Zili Meng` matches `孟子立` (pinyin `meng zi li`) at 100%
-4. **One-click approval** — anything in 70–95% confidence goes to your admin chat. Click **Resolve in browser →**, sign in with GitHub, click **Match** or **Skip**. Decisions persist in `data/user-mapping.json` and are never re-asked.
-
-## Repo chat membership
-
-When a Lark group chat is created for a repo, these users are added as members (idempotently):
-
-- **The admin** (you, or whoever onboarded the org)
-- **Every GitHub contributor** to the repo (commit authors + PR authors on any branch) who has a matched Lark identity in `data/user-mapping.json`
-
-When someone pushes / opens a PR / leaves a review, the event-notify workflow also checks if the actor is matched and adds them to the chat if missing — so new org joiners auto-join their relevant chats on their first contribution.
-
-Unmatched contributors are silently skipped until they're resolved via the approval flow.
-
-## Event notifications
-
-| Event | Card |
-|---|---|
-| Push (commits) | Blue — commit list with compare link |
-| Issues opened/closed/labeled | Orange/Green — issue details |
-| Issue comments | Blue — comment snippet |
-| Pull Requests | Purple/Green/Red — PR stats, reviewers |
-| PR review requested | Orange — **@-mentions the reviewer in Lark** |
-| PR review submitted | Green/Orange — **@-mentions the PR author** |
-| Releases published | Turquoise — release notes |
-| CI/CD (workflow_run) | Green/Red — pass/fail with duration |
-| Branch/tag create/delete | Green/Red |
-
-All filterable from the `.github/workflows/lark-notify.yml` in each repo — delete events you don't care about.
+| Event | Header | Highlights |
+|---|---|---|
+| Push | 🔵 | Commit list, pusher, compare link |
+| Issues | 🟠 / 🟢 | Title, labels, assignee |
+| PR opened / merged / closed | 🟣 / 🟢 / 🔴 | Files, +/-, reviewers |
+| PR review requested | 🟠 | **@-mentions reviewer(s)** |
+| PR review submitted | 🟢 / 🟠 | **@-mentions PR author** |
+| Releases | 🔷 | Tag, notes |
+| CI / workflow_run | 🟢 / 🔴 | Pass/fail, duration |
+| Branch/tag create/delete | 🟢 / 🔴 | Who, what |
 
 ---
 
 ## Self-hosting the Worker
 
-The Worker is tiny (~200 lines) and free on Cloudflare's generous tier. Self-host if:
-
-- You don't want your tenant secrets in a third party's KV (even if that third party only sees them to forward webhooks)
-- You want to pin to a specific version
-- You're onboarding many orgs and want full operational control
+The public setup page uses a shared Worker. If you'd rather own your tenant secrets:
 
 ```bash
-# One-time: install wrangler and log in
-npm install -g wrangler
-wrangler login
-
-# From the repo:
 cd worker
 npm install
+wrangler login
 
-# Create a KV namespace for tenant records
+# KV for tenant records
 npx wrangler kv namespace create TENANTS
-# Paste the returned id into wrangler.toml under [[kv_namespaces]].id
+# paste the id into wrangler.toml → [[kv_namespaces]].id
 
-# Edit wrangler.toml:
-#   GITHUB_CLIENT_ID → your GitHub OAuth App client ID
-#   ALLOWED_ORIGIN   → https://your-pages-domain
+# Fill wrangler.toml:
+#   GITHUB_CLIENT_ID → your OAuth app client id
+#   ALLOWED_ORIGIN   → your GitHub Pages origin
 
-# Upload the OAuth secret via the Cloudflare dashboard
-# (Workers & Pages → your worker → Settings → Variables and Secrets →
-#  add GITHUB_CLIENT_SECRET as a Secret)
+# Set the OAuth secret in the Cloudflare dashboard
+# (Workers → your worker → Settings → Variables and Secrets → add GITHUB_CLIENT_SECRET)
 
-# Deploy
 npx wrangler deploy
 ```
 
-You also need a [GitHub OAuth App](https://github.com/settings/developers) with:
-
-- **Authorization callback URL**: `https://your-worker.workers.dev/callback/github`
-- The app's **Client ID** goes in `wrangler.toml`, the **Client Secret** in the Cloudflare dashboard
-
-Then update `WORKER_URL` in `docs/index.html` and `docs/approve.html` to your worker URL, and enable GitHub Pages on the `main` branch / `/docs` folder.
+Then create a [GitHub OAuth App](https://github.com/settings/developers) whose callback URL is `https://your-worker.workers.dev/callback/github`, and update `WORKER_URL` in `docs/index.html` + `docs/approve.html` to your worker URL.
 
 ---
 
 ## FAQ
 
-**How are users matched when emails don't line up?** Exact email → commit-author email → pinyin-aware fuzzy name match → one-click admin approval for anything ambiguous.
+<details>
+<summary><b>A new hire joined Lark — when do they get GitHub access?</b></summary>
 
-**New Lark hire joins the department — what happens?** Next daily sync (or manually triggered), they're invited to the GitHub org by email. Their email must be resolvable to a Lark user with a visible email address.
+On the next daily sync (02:00 UTC) or when you manually trigger `Sync GitHub ↔ Lark`. Their Lark email must be resolvable; you can also trigger a one-off bootstrap by re-running `🚀 Initial Setup`.
 
-**Someone left the company. How do I remove them?** Manually — go to GitHub Org Settings → People and remove them. **This tool will never remove anyone automatically.** The cost of a false positive (wrongly kicking out a legitimate contributor because their email or name didn't match) is too high.
+</details>
 
-**A new GitHub repo doesn't get a Lark chat.** Check org Settings → Webhooks → Recent Deliveries. Each delivery shows the Worker's response. `401 Bad signature` = the tenant's webhook secret rotated; re-run Initial Setup. `404 Unknown tenant` = the tenant record isn't in the Worker's KV; re-run Initial Setup.
+<details>
+<summary><b>Someone left — how do I remove them?</b></summary>
 
-**Can I sync multiple Lark departments?** Not yet — `LARK_SOURCE_DEPARTMENT_ID` is a single value. Use `0` (root) and rely on GitHub org membership to scope access if you need finer granularity. PRs welcome.
+Manually, in GitHub Org Settings → People. **This tool will never remove anyone.** Auto-remove is a known footgun: a bad match silently kicks a real contributor.
 
-**Approval card didn't arrive.** Check that `LARK_ADMIN_CHAT_ID` is set as an org variable, and that your bot is a member of that chat. Re-run Initial Setup to recreate if needed.
+</details>
 
-**Chinese names display as garbled characters on the approve page.** You're on an old version — pull the upstream fix (PR from the `Sync from upstream` workflow) or hard-reload the approve page.
+<details>
+<summary><b>Will the approval page work for Chinese names?</b></summary>
 
-**Can I trigger the sync manually?** Yes — GitHub Actions → `Sync GitHub ↔ Lark` → Run workflow. Also `Setup Notification Workflows` pushes `lark-notify.yml` to every repo.
+Yes. The page decodes `user-mapping.json` as UTF-8 (via `TextDecoder`), and the fuzzy matcher runs both sides through `pinyin-pro`. `Zili Meng` ↔ `孟子立` scores 100%.
 
-**Updates?** A weekly `Sync from upstream` workflow in your fork creates a PR with new commits from this upstream repo. It's tuned for template-generated forks (no shared history) and preserves your runtime state under `data/`.
+</details>
 
----
+<details>
+<summary><b>Can I sync more than one Lark department?</b></summary>
 
-## Troubleshooting
+Not yet — `LARK_SOURCE_DEPARTMENT_ID` is a single value. Use `0` (root) and scope access inside GitHub. PRs welcome.
 
-**Initial Setup fails on "Admin chat, webhook, tenant registration":**
+</details>
 
-- Lark permission error (`99991672`) → you're missing a scope. The error message lists the required ones; activate any in the Lark console and re-publish the app version.
-- `404 /orgs/:org/hooks` → your OAuth token is missing `admin:org_hook`. Revoke the OAuth app at https://github.com/settings/applications, log in again on the setup page, click **Deploy**.
-- `fetch failed` → the Worker base URL is wrong. Override the `worker_base_url` input when re-running the workflow.
+<details>
+<summary><b>A new repo isn't getting a Lark chat.</b></summary>
 
-**Initial Setup fails on "Deploy notification workflows" for one repo:**
+Org Settings → Webhooks → Recent Deliveries. The Worker's response is in each delivery.
+- `401 Bad signature` → webhook secret rotated; re-run Initial Setup.
+- `404 Unknown tenant` → tenant KV record missing; re-run Initial Setup.
 
-- `Repository rule violations found` / `protected branch` → that repo blocks direct pushes. The other repos still got their workflow. Open a PR manually on the holdout to enable notifications there.
+</details>
 
-**Member sync invited someone I don't want:**
+<details>
+<summary><b>Initial Setup failed on one step.</b></summary>
 
-- Cancel the invitation at https://github.com/orgs/YOUR-ORG/people/pending_invitations. Then click **Skip** on the approve page for that user so it stops trying.
+Common ones:
+- **Lark `99991672`** → missing a scope. The error message lists the alternatives; activate any, re-publish the version.
+- **GitHub `404 /orgs/:org/hooks`** → OAuth token missing `admin:org_hook`. Revoke the app at <https://github.com/settings/applications>, log in again on the setup page.
+- **`fetch failed` from setup-bootstrap** → `worker_base_url` input is wrong; override it when re-running.
+- **Deploy Notifications: `Repository rule violations found`** → one repo has branch protection. The other repos are fine; open a PR on the holdout if you want it.
 
-**Lark chat was created but I can't see it:**
+</details>
 
-- The bot creates chats but doesn't auto-invite users it can't identify. Re-run `Sync GitHub ↔ Lark` with `skip_members=true`, `skip_repos=false` — the admin + all matched contributors will be added.
+<details>
+<summary><b>Updates?</b></summary>
+
+Weekly `Sync from upstream` workflow PRs new commits from this repo. It's tuned for template-generated forks: prefers upstream on conflicts but preserves your `data/*.json`.
+
+</details>
 
 ---
 
 ## Configuration reference
 
-Set as org-level variables/secrets (done by setup page, or manually at `https://github.com/organizations/YOUR-ORG/settings/secrets/actions`).
+Set at the **org** level (done by the setup page, or manually under `Settings → Secrets and variables → Actions`).
 
-### Secrets
+<details>
+<summary><b>Secrets</b></summary>
 
-| Name | Description |
+| Name | What it is |
 |---|---|
 | `LARK_APP_ID` | Lark custom app ID |
 | `LARK_APP_SECRET` | Lark custom app secret |
-| `SYNC_GITHUB_TOKEN` | GitHub OAuth token — needs `repo`, `workflow`, `admin:org`, `admin:org_hook` |
+| `SYNC_GITHUB_TOKEN` | GitHub OAuth token with `repo`, `workflow`, `admin:org`, `admin:org_hook` |
 
-### Variables
+</details>
 
-| Name | Description | Default |
+<details>
+<summary><b>Variables</b></summary>
+
+| Name | Default | What it is |
 |---|---|---|
-| `SYNC_GITHUB_ORG` | Org name (e.g. `acme`) | *(set by deploy)* |
-| `LARK_DOMAIN` | `feishu` or `lark` | `feishu` |
-| `LARK_SOURCE_DEPARTMENT_ID` | Lark dept to sync | `0` (root) |
-| `LARK_ADMIN_CHAT_ID` | Chat ID that receives approval prompts | *(set by deploy)* |
-| `LARK_ADMIN_OPEN_ID` | Admin's Lark open_id (auto-added to every repo chat) | *(set by deploy)* |
-| `APPROVE_URL_BASE` | Base URL of the approval page | `https://zilimeng.com/lark-github-sync` |
+| `SYNC_GITHUB_ORG` | *(set by deploy)* | GitHub org name |
+| `LARK_DOMAIN` | `feishu` | `feishu` or `lark` |
+| `LARK_SOURCE_DEPARTMENT_ID` | `0` | Lark dept to sync (`0` = root) |
+| `LARK_ADMIN_CHAT_ID` | *(set by deploy)* | Chat that receives approval prompts |
+| `LARK_ADMIN_OPEN_ID` | *(set by deploy)* | Admin's Lark open_id (auto-added to every repo chat) |
+| `APPROVE_URL_BASE` | `https://zilimeng.com/lark-github-sync` | Base URL of the approval page |
+
+</details>
 
 ---
 
 ## Architecture
 
-- **`src/`** — Node.js scripts run by GitHub Actions
-  - `sync-members.ts` — Lark dept ↔ GitHub org member sync (invite-only)
-  - `sync-repos.ts` — create Lark chat for each org repo
-  - `setup-repos.ts` — push `lark-notify.yml` to every org repo
-  - `notify.ts` — send one notification card for one event (invoked per repo per event)
-  - `handle-repo-event.ts` — handle `repository.created/renamed/archived/deleted`
-  - `apply-approval.ts` — apply one approval decision from the approve page
-  - `setup-bootstrap.ts` — one-shot: admin chat + org webhook + tenant KV record
-  - `repos.ts`, `cards.ts`, `lark.ts`, `name-match.ts`, `user-mapping.ts` — helpers
-- **`worker/`** — Cloudflare Worker (OAuth proxy + webhook forwarder + tenant KV registry)
-- **`docs/`** — GitHub Pages site
-  - `index.html` — setup page (OAuth login + Lark creds + Deploy button)
-  - `approve.html` — admin approval page for ambiguous member matches
-  - `callback.html` — OAuth callback redirect
-- **`.github/workflows/`**
-  - `initial-setup.yml` — one-shot bootstrap, triggered by the deploy page
-  - `sync.yml` — daily cron for member + repo sync
-  - `on-repo-event.yml` — handles real-time repo lifecycle events
-  - `on-approval.yml` — applies approval decisions
-  - `setup-repos.yml` — manually re-push `lark-notify.yml` to all repos
-  - `sync-upstream.yml` — weekly PR from upstream template
-- **`data/`** — runtime state (committed to git)
-  - `repo-chat-mapping.json` — GitHub repo ↔ Lark chat ID
-  - `user-mapping.json` — GitHub login ↔ Lark open_id (matched / skipped / pending)
+```
+src/
+├── sync-members.ts         — Lark dept → GitHub org (invite-only; fuzzy match + approval)
+├── sync-repos.ts           — Create/maintain Lark chat for each org repo
+├── setup-repos.ts          — Push lark-notify.yml to every org repo
+├── notify.ts               — Send one event card; auto-add actor + relevant users
+├── handle-repo-event.ts    — Real-time: repo.created / renamed / archived / deleted
+├── handle-member-event.ts  — Real-time: org.member_added → add them to contributor chats
+├── apply-approval.ts       — Apply one decision from the approval page
+├── setup-bootstrap.ts      — One-shot: admin chat + org webhook + tenant KV record
+├── repos.ts / cards.ts / lark.ts / user-mapping.ts / name-match.ts — helpers
+worker/
+└── src/index.ts            — OAuth proxy + /webhook/github/:org + /api/register-tenant
+docs/
+├── index.html              — Setup page (OAuth + Lark creds + Deploy)
+├── approve.html            — Admin approval UI for ambiguous matches
+└── callback.html           — OAuth popup target
+.github/workflows/
+├── initial-setup.yml       — One-shot bootstrap (triggered by Deploy)
+├── sync.yml                — Daily cron: members → repos
+├── on-repo-event.yml       — Handles repository_dispatch: repo-changed
+├── on-member-event.yml     — Handles repository_dispatch: member-joined
+├── on-approval.yml         — Handles repository_dispatch: approval-applied
+├── setup-repos.yml         — Manual: re-push lark-notify.yml everywhere
+└── sync-upstream.yml       — Weekly PR from upstream template
+data/
+├── repo-chat-mapping.json  — { GitHub repo full_name → Lark chat_id }
+└── user-mapping.json       — { GitHub login → { lark_open_id, status, … } }
+```
 
 ---
 
+## Contributing
+
+Issues and PRs welcome. Good places to extend:
+
+- Multi-department sync (one Lark tenant, several GitHub orgs)
+- Outbound Lark → GitHub card actions (approve PRs from Lark)
+- More event-card templates
+- Better UI for the approval page (bulk-select, search, undo)
+
+Run locally:
+
+```bash
+npm install
+npm run typecheck
+
+# Set LARK_APP_ID / LARK_APP_SECRET / GITHUB_TOKEN / GITHUB_ORG in env, then:
+npm run sync-members -- # DRY_RUN=true for a safe preview
+npm run sync-repos
+```
+
 ## License
 
-MIT
+[MIT](LICENSE) © Zili Meng and contributors.
