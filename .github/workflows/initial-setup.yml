@@ -32,7 +32,7 @@ on:
         description: "Central Worker base URL (leave default unless self-hosted)"
         required: false
         type: string
-        default: "https://feishu-github-sync-oauth.workers.dev"
+        default: "https://feishu-github-sync-oauth.zilim.workers.dev"
 
 permissions:
   contents: write

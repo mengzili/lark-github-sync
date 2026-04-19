@@ -114,6 +114,7 @@ async function stepLarkApp(): Promise<{
   console.log('  Give it a name like "GitHub Sync Bot".\n');
   console.log('  Then add these permissions (Permissions & Scopes):');
   console.log('    - contact:user.base:readonly   (Read user basic info)');
+  console.log('    - contact:user.id:readonly     (Resolve user ID by email)');
   console.log('    - contact:department.base       (Read department info)');
   console.log('    - contact:contact               (Manage contacts)');
   console.log('    - im:chat                       (Manage group chats)');

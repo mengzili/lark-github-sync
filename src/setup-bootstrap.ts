@@ -63,7 +63,7 @@ async function main() {
   const org = config.githubOrg;
   const syncRepo = process.env.GITHUB_REPOSITORY ?? `${org}/lark-github-sync`;
   const adminEmail = requiredEnv('ADMIN_EMAIL').toLowerCase();
-  const workerBase = process.env.WORKER_BASE_URL ?? 'https://feishu-github-sync-oauth.workers.dev';
+  const workerBase = process.env.WORKER_BASE_URL ?? 'https://feishu-github-sync-oauth.zilim.workers.dev';
 
   console.log(`=== Bootstrap: ${org} → central worker ===\n`);
   console.log(`sync repo: ${syncRepo}`);
