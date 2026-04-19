@@ -25,7 +25,7 @@ export interface Env extends KVEnv {
   ALLOWED_ORIGIN: string;
 }
 
-const SCOPES = 'repo workflow admin:org';
+const SCOPES = 'repo workflow admin:org admin:org_hook';
 /** Repo events we forward (filtered out the rest). */
 const FORWARDED_REPO_ACTIONS = new Set([
   'created',
