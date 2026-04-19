@@ -113,12 +113,12 @@ async function stepLarkApp(): Promise<{
   console.log('  Please create a new Custom App in the console.');
   console.log('  Give it a name like "GitHub Sync Bot".\n');
   console.log('  Then add these permissions (Permissions & Scopes):');
-  console.log('    - contact:user.base:readonly   (Read user basic info)');
-  console.log('    - contact:user.id:readonly     (Resolve user ID by email)');
-  console.log('    - contact:department.base       (Read department info)');
-  console.log('    - contact:contact               (Manage contacts)');
-  console.log('    - im:chat                       (Manage group chats)');
-  console.log('    - im:message:send_as_bot        (Send messages as bot)\n');
+  console.log('    - contact:user.base:readonly       (Read user basic info)');
+  console.log('    - contact:user.id:readonly         (Resolve user ID by email)');
+  console.log('    - contact:department.base:readonly (Read department info)');
+  console.log('    - contact:contact.base:readonly    (List department members)');
+  console.log('    - im:chat                          (Manage group chats)');
+  console.log('    - im:message:send_as_bot           (Send messages as bot)\n');
   console.log('  After adding permissions, submit for admin approval.');
   console.log('  Set App Availability to "All employees".\n');
 
