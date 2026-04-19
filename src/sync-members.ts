@@ -269,7 +269,14 @@ async function main() {
     }
   }
 
-  // ── Step 6: Compute sync actions (invite / remove) ────────────────────
+  // ── Step 6: Compute invites (never remove) ────────────────────────────
+  //
+  // We deliberately DO NOT remove GitHub org members, even when they're not
+  // in the Lark department. Lark ↔ GitHub matching can miss people (email
+  // differences, unmatched contributors who've contributed via SSO, etc.) and
+  // the cost of a false positive is high — a contributor loses access and
+  // their PR history gets "Unknown User" ghosts. The admin can still remove
+  // people manually in GitHub if needed.
   const toInvite: Array<{ email: string; name: string }> = [];
   for (const lark of larkMembers) {
     if (!lark.email) continue;
@@ -278,25 +285,10 @@ async function main() {
     toInvite.push({ email: lark.email, name: lark.name });
   }
 
-  const toRemove: Array<{ login: string; email: string | null }> = [];
-  if (config.syncRemoveMembers) {
-    for (const gh of ghMembers) {
-      if (matchedGh.has(gh.login)) continue;
-      // Don't remove users flagged as skipped on purpose — the admin chose to
-      // keep them in GitHub even though they aren't in the Lark dept.
-      const entry = mapping.entries[gh.login];
-      if (entry?.status === 'skipped') continue;
-      // Don't remove users awaiting approval
-      if (isPending(mapping, gh.login)) continue;
-      toRemove.push({ login: gh.login, email: gh.email });
-    }
-  }
-
   console.log('5. Sync plan:');
   console.log(`   Matched (all sources): ${matchedGh.size}`);
   console.log(`   Auto name-matched:     ${autoLinked}`);
   console.log(`   To invite to GitHub:   ${toInvite.length}`);
-  console.log(`   To remove from GitHub: ${toRemove.length}`);
   console.log(`   Awaiting approval:     ${Object.keys(mapping.pending).length} (${newPending.length} new)`);
   console.log();
 
@@ -313,10 +305,6 @@ async function main() {
     if (toInvite.length) {
       console.log('   Would invite:');
       for (const u of toInvite) console.log(`     + ${u.name} (${u.email})`);
-    }
-    if (toRemove.length) {
-      console.log('   Would remove:');
-      for (const u of toRemove) console.log(`     - ${u.login}`);
     }
     if (newPending.length) {
       console.log('   Would flag for approval:');
@@ -337,20 +325,6 @@ async function main() {
       } catch (err) {
         result.errors.push(`Invite ${u.email}: ${err}`);
         console.error(`   x failed to invite ${u.email}: ${err}`);
-      }
-    }
-
-    for (const u of toRemove) {
-      try {
-        await octokit.orgs.removeMembershipForUser({
-          org: config.githubOrg,
-          username: u.login,
-        });
-        result.removed.push(`${u.login}`);
-        console.log(`   - removed ${u.login}`);
-      } catch (err) {
-        result.errors.push(`Remove ${u.login}: ${err}`);
-        console.error(`   x failed to remove ${u.login}: ${err}`);
       }
     }
 
@@ -385,7 +359,6 @@ async function main() {
   console.log('\n=== Summary ===');
   console.log(`Matched:          ${matchedGh.size}`);
   console.log(`Invited:          ${result.invited.length}`);
-  console.log(`Removed:          ${result.removed.length}`);
   console.log(`Pending approval: ${Object.keys(mapping.pending).length}`);
   console.log(`Errors:           ${result.errors.length}`);
 

@@ -37,7 +37,6 @@ env:
   GITHUB_TOKEN: ${{ secrets.SYNC_GITHUB_TOKEN }}
   GITHUB_ORG: ${{ vars.SYNC_GITHUB_ORG }}
   DRY_RUN: ${{ inputs.dry_run || 'false' }}
-  SYNC_REMOVE_MEMBERS: ${{ vars.SYNC_REMOVE_MEMBERS || 'true' }}
 
 jobs:
   sync-members:

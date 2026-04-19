@@ -16,7 +16,6 @@ export interface Config {
 
   // Options
   dryRun: boolean;
-  syncRemoveMembers: boolean;
 }
 
 function requiredEnv(name: string): string {
@@ -42,6 +41,5 @@ export function loadConfig(): Config {
     githubOrg: requiredEnv('GITHUB_ORG'),
 
     dryRun: process.env.DRY_RUN === 'true',
-    syncRemoveMembers: process.env.SYNC_REMOVE_MEMBERS !== 'false',
   };
 }

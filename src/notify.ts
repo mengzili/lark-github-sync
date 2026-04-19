@@ -98,7 +98,6 @@ async function main() {
     githubToken: '',
     githubOrg: '',
     dryRun: false,
-    syncRemoveMembers: false,
   });
 
   // Load the user mapping (for @-mentions). Absent file is fine — treat as empty.
