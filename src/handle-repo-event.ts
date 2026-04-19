@@ -84,9 +84,11 @@ async function main() {
         id: repoId,
       };
       const existingChats = await listBotChats();
+      const adminOpenId = process.env.LARK_ADMIN_OPEN_ID || '';
       const r = await ensureRepoChat(octokit, repo, mapping, existingChats, {
         owner: config.githubOrg,
         dryRun: config.dryRun,
+        adminOpenIds: adminOpenId ? [adminOpenId] : [],
       });
       console.log(`  ${r.created ? '+ created' : '~ reused'} chat ${r.chat_id}`);
 
@@ -126,9 +128,11 @@ async function main() {
           id: repoId,
         };
         const existingChats = await listBotChats();
+        const adminOpenId = process.env.LARK_ADMIN_OPEN_ID || '';
         await ensureRepoChat(octokit, repo, mapping, existingChats, {
           owner: config.githubOrg,
           dryRun: config.dryRun,
+          adminOpenIds: adminOpenId ? [adminOpenId] : [],
         });
       } else {
         // Migrate mapping key + rename the Lark chat

@@ -144,6 +144,8 @@ jobs:
           cache: "npm"
       - run: npm ci
       - name: Create Lark group chats for repos
+        env:
+          LARK_ADMIN_OPEN_ID: ${{ vars.LARK_ADMIN_OPEN_ID }}
         run: npx tsx src/sync-repos.ts
       - name: Commit mapping
         run: |

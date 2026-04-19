@@ -8,6 +8,7 @@ import {
   createGroupChat,
   sendCardMessage,
   getLarkClient,
+  addMembersToChat,
 } from './lark.js';
 import type { GitHubRepo, RepoChatMapping } from './types.js';
 import { repoArchivedCard, repoDeletedCard, repoRenamedCard } from './cards.js';
@@ -90,16 +91,21 @@ export interface EnsureRepoChatResult {
  * `LARK_CHAT_ID` repo variable is set. Safe to call many times — no-op when
  * everything is already in place. Also handles the case where the mapping has
  * the repo under an older name (rename).
+ *
+ * If `adminOpenIds` is provided, the admin user(s) are added to the chat
+ * (idempotently — Lark silently ignores already-members). Without this the
+ * bot creates the chat with just itself as a member and humans can't see it.
  */
 export async function ensureRepoChat(
   octokit: Octokit,
   repo: GitHubRepo & { id?: number },
   mapping: RepoChatMapping,
   existingChats: Map<string, string>,
-  opts: { owner: string; dryRun: boolean },
+  opts: { owner: string; dryRun: boolean; adminOpenIds?: string[] },
 ): Promise<EnsureRepoChatResult> {
   const existing = findMappingEntry(mapping, repo);
   const chatName = chatNameForRepo(repo.full_name);
+  const adminOpenIds = (opts.adminOpenIds ?? []).filter(Boolean);
 
   // Path 1: mapping already has an entry — rename-safe via repo_id.
   if (existing) {
@@ -115,6 +121,14 @@ export async function ensureRepoChat(
     // Ensure repo_id is populated going forward
     if (repo.id && !mapping[repo.full_name].repo_id) {
       mapping[repo.full_name].repo_id = repo.id;
+    }
+    // Ensure admin is in the chat
+    if (adminOpenIds.length && !opts.dryRun) {
+      try {
+        await addMembersToChat(mapping[repo.full_name].chat_id, adminOpenIds);
+      } catch (err) {
+        console.warn(`  ⚠ could not add admin(s) to ${repo.full_name} chat: ${err}`);
+      }
     }
     return {
       chat_id: mapping[repo.full_name].chat_id,
@@ -133,16 +147,23 @@ export async function ensureRepoChat(
       repo_id: repo.id,
       renames: [],
     };
+    if (adminOpenIds.length && !opts.dryRun) {
+      try {
+        await addMembersToChat(recoveredChatId, adminOpenIds);
+      } catch (err) {
+        console.warn(`  ⚠ could not add admin(s) to ${repo.full_name} chat: ${err}`);
+      }
+    }
     return { chat_id: recoveredChatId, created: false, mappingKey: repo.full_name };
   }
 
-  // Path 3: brand new — create the chat.
+  // Path 3: brand new — create the chat with admin(s) as initial members.
   if (opts.dryRun) {
     return { chat_id: '<dry-run>', created: true, mappingKey: repo.full_name };
   }
 
   const description = `GitHub notifications for ${repo.full_name}${repo.description ? ` — ${repo.description}` : ''}`;
-  const chatId = await createGroupChat(chatName, description);
+  const chatId = await createGroupChat(chatName, description, adminOpenIds.length ? adminOpenIds : undefined);
 
   mapping[repo.full_name] = {
     chat_id: chatId,

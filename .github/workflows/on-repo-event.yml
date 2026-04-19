@@ -20,6 +20,7 @@ env:
   LARK_APP_SECRET: ${{ secrets.LARK_APP_SECRET }}
   LARK_DOMAIN: ${{ vars.LARK_DOMAIN || 'feishu' }}
   LARK_SOURCE_DEPARTMENT_ID: ${{ vars.LARK_SOURCE_DEPARTMENT_ID || '0' }}
+  LARK_ADMIN_OPEN_ID: ${{ vars.LARK_ADMIN_OPEN_ID }}
   GITHUB_TOKEN: ${{ secrets.SYNC_GITHUB_TOKEN }}
   GITHUB_ORG: ${{ vars.SYNC_GITHUB_ORG }}
 

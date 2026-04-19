@@ -76,12 +76,14 @@ async function main() {
 
   console.log('4. Processing repos...');
   const result: RepoSyncResult = { created: [], existing: [], errors: [] };
+  const adminOpenId = process.env.LARK_ADMIN_OPEN_ID || '';
 
   for (const repo of repos) {
     try {
       const r = await ensureRepoChat(octokit, repo, mapping, existingChats, {
         owner: config.githubOrg,
         dryRun: config.dryRun,
+        adminOpenIds: adminOpenId ? [adminOpenId] : [],
       });
       if (r.created) {
         result.created.push(repo.full_name);

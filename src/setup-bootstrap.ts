@@ -95,10 +95,14 @@ async function main() {
     console.log(`   + created admin chat: ${adminChatId}`);
   }
 
-  // ── 3. Store chat id as an org variable ──────────────────────────────
+  // ── 3. Store chat id + admin open_id as org variables ────────────────
   console.log('\n3. Setting LARK_ADMIN_CHAT_ID on org...');
   ghSetOrgVariable(org, 'LARK_ADMIN_CHAT_ID', adminChatId, config.githubToken);
   console.log(`   LARK_ADMIN_CHAT_ID = ${adminChatId}`);
+  if (adminOpenId) {
+    ghSetOrgVariable(org, 'LARK_ADMIN_OPEN_ID', adminOpenId, config.githubToken);
+    console.log(`   LARK_ADMIN_OPEN_ID = ${adminOpenId}`);
+  }
 
   // ── 4. Register GitHub org webhook ───────────────────────────────────
   console.log('\n4. Registering GitHub org webhook...');
