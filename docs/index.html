@@ -324,14 +324,11 @@ function logSet(el, txt, st) {
 let _sodium = null;
 async function loadSodium() {
   if (_sodium) return _sodium;
-  await new Promise((ok, fail) => {
-    const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/libsodium-wrappers@0.7.15/dist/modules/libsodium-wrappers.js';
-    s.onload = ok; s.onerror = fail;
-    document.head.appendChild(s);
-  });
-  await window.sodium.ready;
-  _sodium = window.sodium;
+  // jsdelivr's /+esm wrapper serves an ES module we can dynamic-import
+  const mod = await import('https://cdn.jsdelivr.net/npm/libsodium-wrappers@0.7.15/+esm');
+  const sodium = mod.default || mod;
+  await sodium.ready;
+  _sodium = sodium;
   return _sodium;
 }
 async function encryptSecret(pubKey, value) {
@@ -360,14 +357,24 @@ async function deploy() {
   const full = org + '/' + repo;
 
   try {
-    // 1. Create repo from template
+    // 1. Create repo from template (idempotent — reuse if already exists)
     let L = logAdd('Creating repository ' + full + '...', 'spin');
-    await ghApi('POST', `/repos/${TEMPLATE_OWNER}/${TEMPLATE_REPO}/generate`, {
-      owner: org, name: repo,
-      description: 'Sync GitHub org with Lark/Feishu — members, repos, notifications',
-      private: true, include_all_branches: false,
-    });
-    logSet(L, 'Created ' + full, 'ok');
+    let repoExists = false;
+    try {
+      await ghApi('GET', '/repos/' + full);
+      repoExists = true;
+    } catch { /* 404 = repo doesn't exist yet */ }
+
+    if (repoExists) {
+      logSet(L, 'Reusing existing ' + full, 'ok');
+    } else {
+      await ghApi('POST', `/repos/${TEMPLATE_OWNER}/${TEMPLATE_REPO}/generate`, {
+        owner: org, name: repo,
+        description: 'Sync GitHub org with Lark/Feishu — members, repos, notifications',
+        private: true, include_all_branches: false,
+      });
+      logSet(L, 'Created ' + full, 'ok');
+    }
 
     // 2. Wait for repo ready
     L = logAdd('Waiting for repository...', 'spin');
