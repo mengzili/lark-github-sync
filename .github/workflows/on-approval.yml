@@ -38,13 +38,32 @@ jobs:
 
       - run: npm ci
 
-      - name: Apply decision
-        run: npx tsx src/apply-approval.ts
-
-      - name: Commit updated mapping
+      - name: Apply decision and commit (with retry on concurrent push)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/user-mapping.json
-          git diff --staged --quiet || git commit -m "chore: apply approval for ${{ github.event.client_payload.github_login }} [skip ci]"
-          git push
+          for attempt in 1 2 3 4 5; do
+            # Refresh state — a sibling approval run may have pushed while we queued
+            git fetch origin main
+            git reset --hard origin/main
+
+            # Apply this run's decision on top of the freshest state
+            npx tsx src/apply-approval.ts
+
+            git add data/user-mapping.json
+            if git diff --staged --quiet; then
+              echo "No changes (already applied or entry no longer pending)"
+              exit 0
+            fi
+            git commit -m "chore: apply approval for ${{ github.event.client_payload.github_login }} [skip ci]"
+
+            if git push; then
+              echo "Pushed successfully on attempt $attempt"
+              exit 0
+            fi
+
+            echo "Push attempt $attempt rejected — another run got there first; retrying..."
+            sleep $((attempt * 2))
+          done
+          echo "All 5 attempts exhausted"
+          exit 1
