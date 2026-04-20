@@ -4,14 +4,13 @@
  *
  * Flow:
  *   1. Load user-mapping. If the new member isn't matched yet, try to
- *      resolve them now (they're a fresh org member so sync-members may
- *      not have seen them yet).
+ *      resolve them now:
+ *        a. Exact email match (profile email or commit-author probe)
+ *        b. Fuzzy name match (pinyin-aware) — auto-link ≥0.95 unambiguous
+ *        c. Otherwise append to pending[] and post an approval card
  *   2. If matched (now or previously), find every repo in the org that
  *      lists them as a contributor (commits or PR authorship) and add
  *      their Lark open_id to each repo's chat.
- *
- * No-op if the user has no Lark mapping — they'll be handled by the
- * next scheduled sync-members / approval flow.
  */
 
 import fs from 'node:fs';
@@ -21,12 +20,21 @@ import { loadConfig } from './config.js';
 import {
   initLarkClient,
   addMembersToChat,
-  batchGetUserIdsByEmail,
   listDepartmentMembersDetailed,
+  sendCardMessage,
   formatLarkError,
 } from './lark.js';
-import { loadUserMapping, saveUserMapping, recordMatch, larkIdForGithub } from './user-mapping.js';
-import type { RepoChatMapping } from './types.js';
+import {
+  loadUserMapping,
+  saveUserMapping,
+  recordMatch,
+  addPending,
+  larkIdForGithub,
+  isPending,
+} from './user-mapping.js';
+import { AUTO_MATCH_THRESHOLD, bestMatches } from './name-match.js';
+import { approvalPromptCard } from './cards.js';
+import type { LarkMember, MatchCandidate, PendingApproval, RepoChatMapping } from './types.js';
 
 const DATA_DIR = path.resolve(import.meta.dirname, '..', 'data');
 const REPO_MAPPING_FILE = path.join(DATA_DIR, 'repo-chat-mapping.json');
@@ -57,43 +65,123 @@ async function main() {
   const userMapping = loadUserMapping();
   let openId = larkIdForGithub(userMapping, login);
 
-  // Not matched yet? Try email + name resolution against the current Lark dept.
+  // Not matched yet? Try to resolve them before the next scheduled sync.
   if (!openId) {
     console.log('Not in user-mapping; attempting fresh match…');
     try {
-      const { data: profile } = await octokit.users.getByUsername({ username: login });
+      const [profile, larkMembers] = await Promise.all([
+        octokit.users.getByUsername({ username: login }).then((r) => r.data),
+        listDepartmentMembersDetailed(config.larkSourceDepartmentId),
+      ]);
+
+      // a. Exact email match (profile email)
       const ghEmail = profile.email?.toLowerCase();
+      let match: LarkMember | undefined;
       if (ghEmail) {
-        const larkMembers = await listDepartmentMembersDetailed(config.larkSourceDepartmentId);
-        const byEmail = larkMembers.find(
-          (m) => m.email && m.email.toLowerCase() === ghEmail,
-        );
-        if (byEmail) {
-          console.log(`  email match: ${ghEmail} → ${byEmail.name} (${byEmail.open_id})`);
-          recordMatch(userMapping, login, {
-            lark_open_id: byEmail.open_id,
-            lark_name: byEmail.name,
-            email: byEmail.email ?? undefined,
-            decided_by: 'auto:member-joined',
+        match = larkMembers.find((m) => m.email?.toLowerCase() === ghEmail);
+        if (match) console.log(`  email match: ${ghEmail} → ${match.name}`);
+      }
+
+      // b. Commit-author email probe
+      if (!match) {
+        try {
+          const res = await octokit.search.commits({
+            q: `author:${login} org:${config.githubOrg}`,
+            per_page: 5,
           });
-          saveUserMapping(userMapping);
-          openId = byEmail.open_id;
+          const emails = new Set<string>();
+          for (const c of res.data.items) {
+            const e = (c as any).commit?.author?.email as string | undefined;
+            if (e && !e.endsWith('@users.noreply.github.com')) emails.add(e.toLowerCase());
+          }
+          for (const email of emails) {
+            const m = larkMembers.find((x) => x.email?.toLowerCase() === email);
+            if (m) { match = m; console.log(`  commit-email match: ${email} → ${m.name}`); break; }
+          }
+        } catch {}
+      }
+
+      // c. Fuzzy name match (pinyin-aware, surname-order-tolerant)
+      if (!match) {
+        const ghName = profile.name || login.replace(/[-_]/g, ' ');
+        const pool = larkMembers.map((l) => ({ name: l.name, member: l }));
+        const candidates = bestMatches(ghName, pool, 3);
+        if (candidates.length > 0) {
+          const top = candidates[0];
+          const unambiguous =
+            candidates.length === 1 || candidates[1].score < AUTO_MATCH_THRESHOLD;
+          if (top.score >= AUTO_MATCH_THRESHOLD && unambiguous) {
+            match = top.item.member;
+            console.log(`  fuzzy auto-match: "${ghName}" → ${match.name} (${top.score.toFixed(2)})`);
+          } else {
+            // Post as pending for admin approval
+            const matchCandidates: MatchCandidate[] = candidates.map((c) => ({
+              lark_open_id: c.item.member.open_id,
+              lark_name: c.item.member.name,
+              email: c.item.member.email ?? undefined,
+              score: Number(c.score.toFixed(3)),
+            }));
+            const pending: PendingApproval = {
+              gh_login: login,
+              gh_name: profile.name ?? undefined,
+              gh_email: profile.email ?? undefined,
+              gh_avatar_url: p.avatar_url ?? profile.avatar_url,
+              candidates: matchCandidates,
+              posted_at: new Date().toISOString(),
+            };
+            if (!isPending(userMapping, login)) {
+              addPending(userMapping, pending);
+              saveUserMapping(userMapping);
+              console.log(`  no confident match — added to pending (${candidates.length} candidates)`);
+
+              // Post approval card to admin chat
+              const adminChat = process.env.LARK_ADMIN_CHAT_ID || '';
+              const approveBase =
+                process.env.APPROVE_URL_BASE ??
+                'https://zilimeng.com/lark-github-sync';
+              if (adminChat) {
+                try {
+                  await sendCardMessage(
+                    adminChat,
+                    approvalPromptCard({
+                      count: Object.keys(userMapping.pending).length,
+                      org: config.githubOrg,
+                      approveUrl: `${approveBase}/approve.html#org=${encodeURIComponent(config.githubOrg)}`,
+                      sampleLogins: Object.keys(userMapping.pending),
+                    }) as any,
+                  );
+                  console.log('  posted approval card to admin chat');
+                } catch (err) {
+                  console.warn(`  ⚠ could not post approval card: ${err}`);
+                }
+              }
+            }
+          }
         }
       }
-      // Fuzzy name match could also go here, but the next scheduled
-      // sync-members run will handle it with a better algorithm.
+
+      if (match) {
+        recordMatch(userMapping, login, {
+          lark_open_id: match.open_id,
+          lark_name: match.name,
+          email: match.email ?? profile.email ?? undefined,
+          decided_by: 'auto:member-joined',
+        });
+        saveUserMapping(userMapping);
+        openId = match.open_id;
+      }
     } catch (err) {
       console.warn(`  could not resolve identity: ${err}`);
     }
   }
 
   if (!openId) {
-    console.log(`@${login} has no Lark mapping yet — will be picked up by the next sync-members run.`);
+    console.log(`@${login} has no confident Lark mapping — awaiting approval.`);
     return;
   }
 
-  // Find every repo in the org where @login is a contributor or PR author,
-  // and add them to that repo's chat.
+  // Find every repo where @login is a contributor or PR author, and add
+  // them to that repo's chat.
   const repoMapping = loadRepoMapping();
   let added = 0, skipped = 0, errors = 0;
 
@@ -109,27 +197,18 @@ async function main() {
       if (contributors.some((c) => c.login === login && c.type === 'User')) {
         isContributor = true;
       }
-    } catch {
-      // Empty repo — skip
-    }
+    } catch {}
 
     if (!isContributor) {
       try {
         const prs = await octokit.paginate(octokit.pulls.list, {
           owner, repo: repoName, state: 'all', per_page: 100,
         });
-        if (prs.some((pr) => pr.user?.login === login)) {
-          isContributor = true;
-        }
-      } catch {
-        // Ignore
-      }
+        if (prs.some((pr) => pr.user?.login === login)) isContributor = true;
+      } catch {}
     }
 
-    if (!isContributor) {
-      skipped++;
-      continue;
-    }
+    if (!isContributor) { skipped++; continue; }
 
     try {
       await addMembersToChat(entry.chat_id, [openId]);
@@ -148,3 +227,4 @@ main().catch((err) => {
   console.error('Fatal error:', formatLarkError(err));
   process.exit(1);
 });
+
