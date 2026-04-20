@@ -63,8 +63,14 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/user-mapping.json
-          git diff --staged --quiet || git commit -m "chore: sync members [skip ci]"
-          git push
+          git diff --staged --quiet && exit 0
+          git commit -m "chore: sync members [skip ci]"
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && exit 0
+            echo "push attempt $i rejected — retrying in ${i}s"
+            sleep "$i"
+          done
+          exit 1
 
   sync-repos:
     name: Sync Repos
@@ -93,5 +99,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/repo-chat-mapping.json
-          git diff --staged --quiet || git commit -m "chore: update repo-chat mapping [skip ci]"
-          git push
+          git diff --staged --quiet && exit 0
+          git commit -m "chore: update repo-chat mapping [skip ci]"
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && exit 0
+            echo "push attempt $i rejected — retrying in ${i}s"
+            sleep "$i"
+          done
+          exit 1
