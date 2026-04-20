@@ -42,7 +42,9 @@ jobs:
   sync-members:
     name: Sync Members
     runs-on: ubuntu-latest
-    if: ${{ !inputs.skip_members }}
+    # Skip on the upstream template repo (no SYNC_GITHUB_ORG set means
+    # nothing to sync) so the daily cron doesn't fail noisily there.
+    if: ${{ !inputs.skip_members && vars.SYNC_GITHUB_ORG != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -78,7 +80,7 @@ jobs:
     # Run after members so newly-matched users land in their repo chats on
     # the same day, not 24h later.
     needs: sync-members
-    if: ${{ !inputs.skip_repos && (success() || needs.sync-members.result == 'skipped') }}
+    if: ${{ !inputs.skip_repos && vars.SYNC_GITHUB_ORG != '' && (success() || needs.sync-members.result == 'skipped') }}
     steps:
       - uses: actions/checkout@v4
 
